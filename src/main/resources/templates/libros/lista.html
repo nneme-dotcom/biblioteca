@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8">
+  <title>Libros</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 0; }
+    nav { background: #222; padding: 12px 20px; }
+    nav a { color: #fff; margin-right: 16px; text-decoration: none; }
+    main { padding: 20px; }
+    table { border-collapse: collapse; width: 100%; }
+    th, td { border-bottom: 1px solid #ddd; padding: 8px; text-align: left; }
+    .btn { padding: 6px 12px; background: #3cffd0; border: 0; border-radius: 4px; text-decoration: none; color: #000; }
+  </style>
+</head>
+<body>
+<!-- Lista de libros, con botones para agregar, editar y borrar. -->
+<!-- Menú de arriba, igual en todas las pantallas. -->
+<nav>
+  <a th:href="@{/libros}">Libros</a>
+  <a th:href="@{/usuarios}">Usuarios</a>
+  <a th:href="@{/prestamos}">Préstamos</a>
+</nav>
+<main>
+  <h1>Libros</h1>
+  <a class="btn" th:href="@{/libros/nuevo}">+ Nuevo libro</a>
+  <table>
+    <thead>
+      <tr><th>Título</th><th>ISBN</th><th>Año</th><th>Disponible</th><th>Autores</th><th>Acciones</th></tr>
+    </thead>
+    <tbody>
+      <tr th:each="libro : ${libros}">
+        <td th:text="${libro.titulo}"></td>
+        <td th:text="${libro.isbn}"></td>
+        <td th:text="${libro.anio}"></td>
+        <td th:text="${libro.disponible} ? 'Sí' : 'No'"></td>
+        <td>
+          <span th:each="autor, st : ${libro.autores}" th:text="${autor.nombre} + (${st.last} ? '' : ', ')"></span>
+        </td>
+        <td>
+          <a th:href="@{/libros/{id}/editar(id=${libro.id})}">Editar</a>
+          <form th:action="@{/libros/{id}/eliminar(id=${libro.id})}" method="post" style="display:inline">
+            <button type="submit">Eliminar</button>
+          </form>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+</main>
+</body>
+</html>

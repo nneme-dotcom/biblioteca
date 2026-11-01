@@ -31,3 +31,6 @@ build/
 
 ### VS Code ###
 .vscode/
+
+### Compilados de VS Code ###
+bin/

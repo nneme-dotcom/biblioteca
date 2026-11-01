@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8">
+  <title>Formulario de libro</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 0; }
+    nav { background: #222; padding: 12px 20px; }
+    nav a { color: #fff; margin-right: 16px; text-decoration: none; }
+    main { padding: 20px; }
+    label { display: block; margin-top: 12px; }
+    input, select { padding: 6px; width: 320px; }
+    .btn { padding: 8px 16px; background: #3cffd0; border: 0; border-radius: 4px; color: #000; }
+  </style>
+</head>
+<body>
+<!-- Formulario para cargar un libro nuevo o cambiar uno que ya existe. -->
+<!-- Menú de arriba, igual en todas las pantallas. -->
+<nav>
+  <a th:href="@{/libros}">Libros</a>
+  <a th:href="@{/usuarios}">Usuarios</a>
+  <a th:href="@{/prestamos}">Préstamos</a>
+</nav>
+<main>
+  <h1 th:text="${libro.id == null} ? 'Nuevo libro' : 'Editar libro'"></h1>
+  <form th:action="@{/libros}" th:object="${libro}" method="post">
+    <input type="hidden" th:field="*{id}">
+    <label>Título <input type="text" th:field="*{titulo}" required></label>
+    <label>ISBN <input type="text" th:field="*{isbn}"></label>
+    <label>Año <input type="number" th:field="*{anio}"></label>
+    <!-- Con Ctrl apretado podés elegir más de un autor. -->
+    <label>Autores
+      <select name="autorIds" multiple>
+        <option th:each="a : ${autores}" th:value="${a.id}" th:text="${a.nombre}"
+                th:selected="${autorIdsSeleccionados.contains(a.id)}"></option>
+      </select>
+    </label>
+    <label><input type="checkbox" th:field="*{disponible}"> Disponible</label>
+    <p><button class="btn" type="submit">Guardar</button> <a th:href="@{/libros}">Cancelar</a></p>
+  </form>
+</main>
+</body>
+</html>

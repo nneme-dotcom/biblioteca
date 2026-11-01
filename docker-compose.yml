@@ -1,0 +1,31 @@
+# Levanta las dos piezas juntas con un solo comando: la base de datos y la app.
+services:
+  # La base de datos. No abre ningún puerto en el PC: solo la ve la app por dentro de Docker.
+  db:
+    image: mariadb:11
+    environment:
+      MARIADB_ROOT_PASSWORD: root
+      MARIADB_DATABASE: biblioteca
+      MARIADB_USER: biblioteca
+      MARIADB_PASSWORD: biblioteca
+    # Docker pregunta cada 5 segundos si la base de datos ya está lista.
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  # La aplicación de la biblioteca.
+  app:
+    build: .
+    # Abrís http://localhost:8082 en el navegador y llegás acá.
+    ports:
+      - "8082:8082"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mariadb://db:3306/biblioteca
+      SPRING_DATASOURCE_USERNAME: biblioteca
+      SPRING_DATASOURCE_PASSWORD: biblioteca
+    # La app espera a que la base de datos esté lista antes de arrancar.
+    depends_on:
+      db:
+        condition: service_healthy
