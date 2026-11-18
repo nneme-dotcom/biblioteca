@@ -1,5 +1,6 @@
 /* Estilos comunes a todas las pantallas (antes estaban repetidos en cada vista). */
-body { font-family: Arial, sans-serif; margin: 0; }
+/* Fondo y texto fijos: si no, en navegadores en modo oscuro el texto negro queda sobre fondo negro. */
+body { font-family: Arial, sans-serif; margin: 0; background: #fff; color: #222; color-scheme: light; }
 nav { background: #222; padding: 12px 20px; display: flex; align-items: center; gap: 16px; }
 nav a { color: #fff; text-decoration: none; }
 nav .espacio { flex: 1; }
