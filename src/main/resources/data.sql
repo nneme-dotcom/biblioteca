@@ -38,7 +38,7 @@ INSERT IGNORE INTO libro_autor (libro_id, autor_id) VALUES
  (9, 1), (9, 4), (9, 5),
  (10, 6), (11, 7), (12, 8), (13, 8), (14, 8), (15, 8);
 
--- USUARIOS (inventados)
+-- USUARIOS (inventados). La contraseña y el rol se los pone DatosIniciales.java al arrancar.
 INSERT IGNORE INTO usuario (id, nombre, email, telefono, fecha_alta) VALUES
  (1, 'Lucía Fernández', 'lucia.fernandez@example.com', '600111222', '2026-01-15'),
  (2, 'Martín Gómez', 'martin.gomez@example.com', '600333444', '2026-03-02'),

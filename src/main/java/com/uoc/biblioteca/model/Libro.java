@@ -36,6 +36,10 @@ public class Libro {
     @OneToMany(mappedBy = "libro")
     private Set<Prestamo> prestamos = new HashSet<>();
 
+    // Los socios que lo marcaron como favorito (el otro lado de Usuario.favoritos).
+    @ManyToMany(mappedBy = "favoritos")
+    private Set<Usuario> seguidores = new HashSet<>();
+
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
 
@@ -56,4 +60,7 @@ public class Libro {
 
     public Set<Prestamo> getPrestamos() { return prestamos; }
     public void setPrestamos(Set<Prestamo> prestamos) { this.prestamos = prestamos; }
+
+    public Set<Usuario> getSeguidores() { return seguidores; }
+    public void setSeguidores(Set<Usuario> seguidores) { this.seguidores = seguidores; }
 }
