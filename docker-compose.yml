@@ -14,6 +14,10 @@ services:
       interval: 5s
       timeout: 5s
       retries: 20
+    # Producto 3: los datos (usuarios registrados, préstamos...) se guardan en un volumen
+    # y no se pierden al hacer docker compose down.
+    volumes:
+      - datos-biblioteca:/var/lib/mysql
 
   # La aplicación de la biblioteca.
   app:
@@ -25,7 +29,17 @@ services:
       SPRING_DATASOURCE_URL: jdbc:mariadb://db:3306/biblioteca
       SPRING_DATASOURCE_USERNAME: biblioteca
       SPRING_DATASOURCE_PASSWORD: biblioteca
+      # Producto 3: cuenta de administrador inicial y contraseña de los socios de ejemplo.
+      APP_ADMIN_EMAIL: admin@biblioteca.com
+      APP_ADMIN_PASSWORD: admin123
+      APP_DEMO_PASSWORD: usuario123
     # La app espera a que la base de datos esté lista antes de arrancar.
     depends_on:
       db:
         condition: service_healthy
+    # Si la app se cae, Docker la vuelve a levantar.
+    restart: unless-stopped
+
+# El "disco" donde vive la base de datos.
+volumes:
+  datos-biblioteca:
