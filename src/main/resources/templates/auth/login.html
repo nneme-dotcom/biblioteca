@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8">
+  <title>Entrar</title>
+  <link rel="stylesheet" th:href="@{/css/estilos.css}">
+</head>
+<body>
+<nav th:replace="~{fragments/menu :: menu}"></nav>
+<main>
+  <!-- Formulario de login. El POST a /login lo procesa Spring Security. -->
+  <div class="caja">
+    <h1>Entrar</h1>
+    <div class="aviso error" th:if="${param.error}">Email o contraseña incorrectos.</div>
+    <div class="aviso ok" th:if="${param.logout}">Cerraste la sesión.</div>
+    <div class="aviso ok" th:if="${param.registrado}">Cuenta creada. Ya podés entrar.</div>
+    <form th:action="@{/login}" method="post">
+      <label>Email <input type="email" name="email" required autofocus></label>
+      <label>Contraseña <input type="password" name="password" required></label>
+      <p><button class="btn" type="submit">Entrar</button></p>
+    </form>
+    <p>¿No tenés cuenta? <a th:href="@{/registro}">Registrate</a></p>
+  </div>
+</main>
+</body>
+</html>

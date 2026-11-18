@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8">
+  <title>Registro</title>
+  <link rel="stylesheet" th:href="@{/css/estilos.css}">
+</head>
+<body>
+<nav th:replace="~{fragments/menu :: menu}"></nav>
+<main>
+  <!-- Alta de un socio nuevo. Entra siempre con el rol USER. -->
+  <div class="caja">
+    <h1>Crear cuenta</h1>
+    <div class="aviso error" th:if="${error}" th:text="${error}"></div>
+    <form th:action="@{/registro}" th:object="${usuario}" method="post">
+      <label>Nombre <input type="text" th:field="*{nombre}" required></label>
+      <label>Email <input type="email" th:field="*{email}" required></label>
+      <label>Teléfono <input type="tel" th:field="*{telefono}"></label>
+      <label>Contraseña (mínimo 6) <input type="password" name="password" minlength="6" required></label>
+      <label>Repetir contraseña <input type="password" name="confirmacion" required></label>
+      <p><button class="btn" type="submit">Registrarme</button></p>
+    </form>
+    <p>¿Ya tenés cuenta? <a th:href="@{/login}">Entrá</a></p>
+  </div>
+</main>
+</body>
+</html>
