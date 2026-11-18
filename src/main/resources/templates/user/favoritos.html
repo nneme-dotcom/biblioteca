@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8">
+  <title>Mis favoritos</title>
+  <link rel="stylesheet" th:href="@{/css/estilos.css}">
+</head>
+<body>
+<!-- Zona del socio: los libros que marcó con la estrella en el catálogo. -->
+<nav th:replace="~{fragments/menu :: menu}"></nav>
+<main>
+  <h1>Mis favoritos</h1>
+  <p th:if="${favoritos.isEmpty()}">No tenés favoritos. Marcalos con ☆ en el <a th:href="@{/libros}">catálogo</a>.</p>
+  <table th:unless="${favoritos.isEmpty()}">
+    <thead><tr><th>Título</th><th>Año</th><th>Disponible</th><th></th></tr></thead>
+    <tbody>
+      <tr th:each="libro : ${favoritos}">
+        <td th:text="${libro.titulo}"></td>
+        <td th:text="${libro.anio}"></td>
+        <td th:text="${libro.disponible} ? 'Sí' : 'No'"></td>
+        <td>
+          <form th:action="@{/user/favoritos/{id}(id=${libro.id})}" method="post" style="display:inline">
+            <button class="btn-sec" type="submit">Quitar</button>
+          </form>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+</main>
+</body>
+</html>

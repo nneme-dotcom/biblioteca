@@ -1,0 +1,23 @@
+/* Estilos comunes a todas las pantallas (antes estaban repetidos en cada vista). */
+body { font-family: Arial, sans-serif; margin: 0; }
+nav { background: #222; padding: 12px 20px; display: flex; align-items: center; gap: 16px; }
+nav a { color: #fff; text-decoration: none; }
+nav .espacio { flex: 1; }
+nav .quien { color: #3cffd0; font-size: 14px; }
+nav .rol { background: #3cffd0; color: #000; border-radius: 10px; padding: 2px 8px; font-size: 12px; margin-left: 6px; }
+nav form { margin: 0; }
+nav button { background: transparent; color: #fff; border: 1px solid #fff; border-radius: 4px; padding: 4px 10px; cursor: pointer; }
+main { padding: 20px; }
+table { border-collapse: collapse; width: 100%; }
+th, td { border-bottom: 1px solid #ddd; padding: 8px; text-align: left; }
+label { display: block; margin-top: 12px; }
+input, select { padding: 6px; width: 320px; }
+input[type=checkbox] { width: auto; }
+.btn { padding: 6px 12px; background: #3cffd0; border: 0; border-radius: 4px; text-decoration: none; color: #000; cursor: pointer; }
+.btn-sec { padding: 4px 10px; background: #eee; border: 1px solid #ccc; border-radius: 4px; cursor: pointer; }
+.aviso { padding: 10px 14px; border-radius: 4px; margin-bottom: 16px; }
+.aviso.ok { background: #e3fff7; border: 1px solid #3cffd0; }
+.aviso.error { background: #ffe8e8; border: 1px solid #f08080; }
+.caja { max-width: 380px; margin: 40px auto; padding: 24px; border: 1px solid #ddd; border-radius: 8px; }
+.caja input { width: 100%; box-sizing: border-box; }
+.estrella { background: none; border: 0; font-size: 18px; cursor: pointer; }

@@ -3,27 +3,16 @@
 <head>
   <meta charset="UTF-8">
   <title>Préstamos</title>
-  <style>
-    body { font-family: Arial, sans-serif; margin: 0; }
-    nav { background: #222; padding: 12px 20px; }
-    nav a { color: #fff; margin-right: 16px; text-decoration: none; }
-    main { padding: 20px; }
-    table { border-collapse: collapse; width: 100%; }
-    th, td { border-bottom: 1px solid #ddd; padding: 8px; text-align: left; }
-  </style>
+  <link rel="stylesheet" th:href="@{/css/estilos.css}">
 </head>
 <body>
-<!-- Lista de préstamos: quién se llevó qué y cuándo lo tiene que devolver. -->
-<!-- Menú de arriba, igual en todas las pantallas. -->
-<nav>
-  <a th:href="@{/libros}">Libros</a>
-  <a th:href="@{/usuarios}">Usuarios</a>
-  <a th:href="@{/prestamos}">Préstamos</a>
-</nav>
+<!-- Solo administración. Quién se llevó qué, cuándo lo tiene que devolver y botón para registrar la devolución. -->
+<nav th:replace="~{fragments/menu :: menu}"></nav>
 <main>
+  <div th:replace="~{fragments/menu :: avisos}"></div>
   <h1>Préstamos</h1>
   <table>
-    <thead><tr><th>Libro</th><th>Usuario</th><th>Préstamo</th><th>Devolución prevista</th><th>Devuelto</th></tr></thead>
+    <thead><tr><th>Libro</th><th>Usuario</th><th>Préstamo</th><th>Devolución prevista</th><th>Devuelto</th><th></th></tr></thead>
     <tbody>
       <tr th:each="p : ${prestamos}">
         <td th:text="${p.libro.titulo}"></td>
@@ -31,6 +20,11 @@
         <td th:text="${p.fechaPrestamo}"></td>
         <td th:text="${p.fechaDevolucionPrevista}"></td>
         <td th:text="${p.devuelto} ? 'Sí' : 'No'"></td>
+        <td>
+          <form th:unless="${p.devuelto}" th:action="@{/admin/prestamos/{id}/devolver(id=${p.id})}" method="post">
+            <button class="btn-sec" type="submit">Marcar devuelto</button>
+          </form>
+        </td>
       </tr>
     </tbody>
   </table>

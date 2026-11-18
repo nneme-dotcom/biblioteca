@@ -1,29 +1,21 @@
 <!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org">
+<html xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
 <head>
   <meta charset="UTF-8">
   <title>Libros</title>
-  <style>
-    body { font-family: Arial, sans-serif; margin: 0; }
-    nav { background: #222; padding: 12px 20px; }
-    nav a { color: #fff; margin-right: 16px; text-decoration: none; }
-    main { padding: 20px; }
-    table { border-collapse: collapse; width: 100%; }
-    th, td { border-bottom: 1px solid #ddd; padding: 8px; text-align: left; }
-    .btn { padding: 6px 12px; background: #3cffd0; border: 0; border-radius: 4px; text-decoration: none; color: #000; }
-  </style>
+  <link rel="stylesheet" th:href="@{/css/estilos.css}">
 </head>
 <body>
-<!-- Lista de libros, con botones para agregar, editar y borrar. -->
-<!-- Menú de arriba, igual en todas las pantallas. -->
-<nav>
-  <a th:href="@{/libros}">Libros</a>
-  <a th:href="@{/usuarios}">Usuarios</a>
-  <a th:href="@{/prestamos}">Préstamos</a>
-</nav>
+<!-- Lista de libros. La misma vista sirve al socio (catálogo) y a administración (gestión):
+     los botones que aparecen dependen del rol. -->
+<nav th:replace="~{fragments/menu :: menu}"></nav>
 <main>
-  <h1>Libros</h1>
-  <a class="btn" th:href="@{/libros/nuevo}">+ Nuevo libro</a>
+  <div th:replace="~{fragments/menu :: avisos}"></div>
+  <h1 sec:authorize="hasRole('ADMIN')">Gestión de libros</h1>
+  <h1 sec:authorize="!hasRole('ADMIN')">Catálogo</h1>
+
+  <p sec:authorize="hasRole('ADMIN')"><a class="btn" th:href="@{/admin/libros/nuevo}">+ Nuevo libro</a></p>
+
   <table>
     <thead>
       <tr><th>Título</th><th>ISBN</th><th>Año</th><th>Disponible</th><th>Autores</th><th>Acciones</th></tr>
@@ -38,10 +30,25 @@
           <span th:each="autor, st : ${libro.autores}" th:text="${autor.nombre} + (${st.last} ? '' : ', ')"></span>
         </td>
         <td>
-          <a th:href="@{/libros/{id}/editar(id=${libro.id})}">Editar</a>
-          <form th:action="@{/libros/{id}/eliminar(id=${libro.id})}" method="post" style="display:inline">
-            <button type="submit">Eliminar</button>
-          </form>
+          <!-- Administración: editar y borrar. -->
+          <th:block sec:authorize="hasRole('ADMIN')">
+            <a th:href="@{/admin/libros/{id}/editar(id=${libro.id})}">Editar</a>
+            <form th:action="@{/admin/libros/{id}/eliminar(id=${libro.id})}" method="post" style="display:inline">
+              <button class="btn-sec" type="submit">Eliminar</button>
+            </form>
+          </th:block>
+          <!-- Socio: pedirlo prestado (si está libre) y marcarlo como favorito. -->
+          <th:block sec:authorize="hasRole('USER')">
+            <form th:if="${libro.disponible}" th:action="@{/user/prestamos/solicitar/{id}(id=${libro.id})}"
+                  method="post" style="display:inline">
+              <button class="btn" type="submit">Pedir prestado</button>
+            </form>
+            <form th:action="@{/user/favoritos/{id}(id=${libro.id})}" method="post" style="display:inline">
+              <button class="estrella" type="submit"
+                      th:title="${favoritosIds.contains(libro.id)} ? 'Quitar de favoritos' : 'Añadir a favoritos'"
+                      th:text="${favoritosIds.contains(libro.id)} ? '★' : '☆'"></button>
+            </form>
+          </th:block>
         </td>
       </tr>
     </tbody>

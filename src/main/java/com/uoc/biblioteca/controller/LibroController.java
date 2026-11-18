@@ -6,16 +6,18 @@ import com.uoc.biblioteca.repository.AutorRepository;
 import com.uoc.biblioteca.repository.LibroRepository;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-// Todo lo que pasa con los libros: verlos, crearlos, editarlos y borrarlos.
+// Gestión de libros: crearlos, editarlos y borrarlos. Desde el Producto 3 vive en /admin y solo entra ROLE_ADMIN.
 @Controller
-@RequestMapping("/libros")
+@RequestMapping("/admin/libros")
 public class LibroController {
 
     // Los "archiveros" de donde sacamos y guardamos libros y autores.
@@ -31,6 +33,7 @@ public class LibroController {
     @GetMapping
     public String listar(Model model) {
         model.addAttribute("libros", libroRepository.findAll());
+        model.addAttribute("favoritosIds", Set.of());
         return "libros/lista";
     }
 
@@ -65,13 +68,23 @@ public class LibroController {
         }
         libro.setAutores(autores);
         libroRepository.save(libro);
-        return "redirect:/libros";
+        return "redirect:/admin/libros";
     }
 
-    // Borra el libro. Ojo: si tiene préstamos, la base de datos no lo deja borrar.
+    // Borra el libro. Si tiene préstamos no se puede (perderíamos el historial) y avisamos.
     @PostMapping("/{id}/eliminar")
-    public String eliminar(@PathVariable Long id) {
-        libroRepository.deleteById(id);
-        return "redirect:/libros";
+    @Transactional
+    public String eliminar(@PathVariable Long id, RedirectAttributes redirect) {
+        Libro libro = libroRepository.findById(id).orElseThrow();
+        if (!libro.getPrestamos().isEmpty()) {
+            redirect.addFlashAttribute("error",
+                    "No se puede borrar \"" + libro.getTitulo() + "\" porque tiene préstamos registrados.");
+            return "redirect:/admin/libros";
+        }
+        // Antes de borrarlo, lo sacamos de los favoritos de quien lo tuviera.
+        libro.getSeguidores().forEach(u -> u.getFavoritos().remove(libro));
+        libroRepository.delete(libro);
+        redirect.addFlashAttribute("mensaje", "Libro borrado.");
+        return "redirect:/admin/libros";
     }
 }
