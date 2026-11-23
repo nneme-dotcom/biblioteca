@@ -62,14 +62,24 @@ async function iniciar() {
   pintarResumen(libros);
 
   const ctx = crearEscenario($('#escena'), {
-    camara: [0.12, 0.84, 2.3], mira: [0.08, 0.66, 0.15],
-    limites: { min: 1.2, max: 3.4, azimut: 0.7, polarMin: 1.1, polarMax: 1.66 },
+    camara: [0.1, 0.86, 3.0], mira: [0.05, 0.74, 0.1],
+    limites: { min: 1.0, max: 4.2, azimut: 0.7, polarMin: 1.1, polarMax: 1.7 },
   });
   const { escena, cam, renderer, alCuadro, foco } = ctx;
-  foco.position.set(0.4, 2.6, 2.4); foco.angle = 0.75; foco.distance = 8;
+  foco.position.set(0.4, 3.0, 2.8); foco.target.position.set(0, 0.9, 0); foco.angle = 0.7; foco.distance = 9;
 
   const grupos = libros.map((l) => crearLibro(l));
-  const { altoTotal } = montarEstanteria(ctx, grupos);
+  // Mismos estantes por género que ve el socio.
+  const GENEROS = ['Novela', 'Cuento', 'Clásicos', 'Género'];
+  const porGenero = GENEROS.map((nombre) => ({ nombre, libros: grupos.filter((g) => (g.userData.libro.genero || 'Novela') === nombre) }))
+    .filter((gr) => gr.libros.length);
+  const { altoTotal, filas, zFrente, anchoTotal } = montarEstanteria(ctx, grupos, { grupos: porGenero });
+  const vistos = new Set();
+  filas.forEach((f) => {
+    if (!f.nombre || vistos.has(f.nombre)) return; vistos.add(f.nombre);
+    const div = document.createElement('span'); div.className = 'placa'; div.textContent = f.nombre;
+    const placa = new CSS2DObject(div); placa.position.set(-anchoTotal / 2 + 0.12, f.yBase - 0.014, zFrente + 0.022); escena.add(placa);
+  });
   $('#cargando').hidden = true;
   grupos.forEach((g) => vestirConPortada(g, renderer));
 
@@ -90,11 +100,15 @@ async function iniciar() {
     marca.position.copy(hueco); marca.position.z += g.userData.fondo / 2 - 0.01;
     escena.add(marca);
 
-    // Posición flotante, en arco frente a la estantería.
-    const x = (i - (n - 1) / 2) * sep;
-    const destino = new THREE.Vector3(x, altoTotal + 0.17 - Math.abs(x) * 0.06, 0.42 + Math.cos(x) * 0.05);
+    // Posición flotante: dos columnas a los lados del mueble, los más urgentes arriba.
+    const lado = i % 2 === 0 ? -1 : 1, fila = Math.floor(i / 2);
+    const filasPorLado = Math.ceil(n / 2);
+    const paso = Math.min(0.36, 1.3 / Math.max(filasPorLado - 1, 1));
+    const x = lado * (anchoTotal / 2 + 0.3);
+    const destino = new THREE.Vector3(x, altoTotal - 0.12 - fila * paso, 0.28);
     g.position.copy(destino);
-    g.rotation.set(0, -Math.PI / 2 + Math.atan2(-x, 2.3) * -1, 0); // tapa hacia la cámara
+    // tapa hacia la cámara
+    g.rotation.set(0, -Math.PI / 2 + Math.atan2(cam.position.x - x, cam.position.z - destino.z), 0);
     g.userData.flota = { base: destino.clone(), fase: i * 0.9 };
 
     // Anillo de tiempo detrás del libro: la parte encendida es lo que queda de préstamo.
@@ -112,7 +126,7 @@ async function iniciar() {
 
     // Hilo de luz desde el hueco hasta el libro.
     const desde = marca.position.clone();
-    const medio = desde.clone().lerp(destino, 0.5); medio.z += 0.25; medio.y += 0.08;
+    const medio = desde.clone().lerp(destino, 0.5); medio.z += 0.22; medio.y += 0.05;
     const curva = new THREE.CatmullRomCurve3([desde, medio, destino.clone().setZ(destino.z - 0.02)]);
     const hilo = new THREE.Mesh(new THREE.TubeGeometry(curva, 48, 0.0016, 6, false),
       new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.55 }));

@@ -16,6 +16,12 @@
     <label>Título <input type="text" th:field="*{titulo}" required></label>
     <label>ISBN <input type="text" th:field="*{isbn}"></label>
     <label>Año <input type="number" th:field="*{anio}"></label>
+    <!-- El género decide en qué estante de la estantería 3D aparece. -->
+    <label>Género
+      <select th:field="*{genero}" required>
+        <option th:each="g : ${generos}" th:value="${g}" th:text="${g}"></option>
+      </select>
+    </label>
     <!-- Con Ctrl apretado podés elegir más de un autor. -->
     <label>Autores
       <select name="autorIds" multiple>

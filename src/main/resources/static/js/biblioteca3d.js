@@ -26,6 +26,46 @@ const PORTADAS = {
   'los hermanos karamazov': 11609759,
   'el idiota': 12070505,
   'memorias del subsuelo': 6908257,
+  'cien anos de soledad': 12808734,
+  'la casa de los espiritus': 15117595,
+  'pedro paramo': 14032826,
+  'la ciudad y los perros': 12521098,
+  'el amor en los tiempos del colera': 12192837,
+  'cronica de una muerte anunciada': 15182511,
+  'la tregua': 7993929,
+  'los detectives salvajes': 15215334,
+  'como agua para chocolate': 10584001,
+  'el llano en llamas': 1047470,
+  'cuentos de amor de locura y de muerte': 99816,
+  'final del juego': 1047767,
+  'el libro de arena': 12774154,
+  'las cosas que perdimos en el fuego': 15147880,
+  'doce cuentos peregrinos': 4923387,
+  'historias de cronopios y de famas': 13874898,
+  'pajaros en la boca': 14861046,
+  'los peligros de fumar en la cama': 13145673,
+  'el informe de brodie': 7995065,
+  'don quijote de la mancha': 7260092,
+  'ana karenina': 12327215,
+  'guerra y paz': 1047136,
+  'madame bovary': 13500156,
+  'orgullo y prejuicio': 15240603,
+  'moby dick': 15128534,
+  'la metamorfosis': 13209436,
+  'el proceso': 12334469,
+  'hamlet': 13919410,
+  'los miserables': 13482823,
+  'fahrenheit 451': 15140929,
+  'cronicas marcianas': 13147157,
+  '1984': 8745958,
+  'un mundo feliz': 14132626,
+  'frankenstein': 8078328,
+  'dracula': 12216503,
+  'el resplandor': 15265008,
+  'asesinato en el orient express': 12996484,
+  'el sabueso de los baskerville': 14279159,
+  'el nombre de la rosa': 12446667,
+  'fundacion': 13540538,
 };
 
 export const normalizar = (s) => (s || '').toLowerCase().normalize('NFD')
@@ -274,35 +314,39 @@ export function crearLibro(libro) {
 // Dibuja el lomo: color de fondo, filetes dorados, título en vertical y autor.
 export function pintarLomo(grupo, fondo, tinta) {
   const { libro, grosor, alto } = grupo.userData;
-  const escala = 2400; // píxeles por metro
-  const W = Math.max(64, Math.round(grosor * escala)), H = Math.round(alto * escala);
+  const escala = 4200; // píxeles por metro: lomos nítidos aunque te acerques
+  const W = Math.max(96, Math.round(grosor * escala)), H = Math.round(alto * escala);
   const [c, g] = lienzo(W, H);
   g.fillStyle = fondo; g.fillRect(0, 0, W, H);
-  ruido(g, W, H, 10);
+  ruido(g, W, H, 8);
   // filetes dorados arriba y abajo
-  g.fillStyle = '#c9a85a';
-  [0.06, 0.075, 0.925, 0.94].forEach((p) => g.fillRect(0, H * p, W, Math.max(2, H * 0.004)));
-  g.save();
-  g.translate(W / 2, H / 2); g.rotate(Math.PI / 2);
-  g.fillStyle = tinta; g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.fillStyle = '#d4b066';
+  [0.05, 0.064, 0.936, 0.95].forEach((p) => g.fillRect(0, H * p, W, Math.max(3, H * 0.004)));
+  const serif = "Georgia, 'Times New Roman', serif";
   const titulo = libro.titulo.toUpperCase();
-  let tam = Math.min(W * 0.42, 46);
-  g.font = `600 ${tam}px Georgia, 'Times New Roman', serif`;
-  while (g.measureText(titulo).width > H * 0.62 && tam > 10) { tam -= 1; g.font = `600 ${tam}px Georgia, 'Times New Roman', serif`; }
   const autor = (libro.autores && libro.autores[0]) ? libro.autores[0].split(' ').slice(-1)[0].toUpperCase() : '';
-  if (W > 90 && autor) {
-    g.fillText(titulo, -H * 0.06, -W * 0.08);
-    g.font = `400 ${Math.max(10, tam * 0.55)}px Georgia, serif`;
-    g.globalAlpha = 0.85; g.fillText(autor, -H * 0.06, W * 0.22); g.globalAlpha = 1;
-  } else {
-    g.fillText(titulo, -H * 0.05, 0);
+  const dosLineas = W > 150 && autor;
+  const largo = H * 0.74;                       // espacio para el título a lo largo del lomo
+  let tam = Math.min(W * (dosLineas ? 0.4 : 0.62), 90);
+  g.font = `700 ${tam}px ${serif}`;
+  while (g.measureText(titulo).width > largo && tam > 14) { tam -= 1; g.font = `700 ${tam}px ${serif}`; }
+  g.save();
+  g.translate(W / 2, H * 0.48); g.rotate(Math.PI / 2);
+  g.textAlign = 'center'; g.textBaseline = 'middle';
+  // contorno fino del color del fondo: el texto se despega y se lee mejor
+  g.lineJoin = 'round'; g.lineWidth = Math.max(2, tam * 0.08); g.strokeStyle = fondo;
+  const yTit = dosLineas ? -W * 0.12 : 0;
+  g.strokeText(titulo, 0, yTit); g.fillStyle = tinta; g.fillText(titulo, 0, yTit);
+  if (dosLineas) {
+    g.font = `400 ${Math.max(14, tam * 0.6)}px ${serif}`;
+    g.globalAlpha = 0.9; g.fillText(autor, 0, W * 0.24); g.globalAlpha = 1;
   }
-  // pequeño sello de la editorial abajo
   g.restore();
+  // pequeño sello de la editorial abajo
   g.fillStyle = tinta; g.globalAlpha = 0.6;
-  g.beginPath(); g.arc(W / 2, H * 0.965, Math.min(W * 0.16, 9), 0, Math.PI * 2); g.fill(); g.globalAlpha = 1;
+  g.beginPath(); g.arc(W / 2, H * 0.972, Math.min(W * 0.14, 12), 0, Math.PI * 2); g.fill(); g.globalAlpha = 1;
 
-  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8;
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 16;
   const m = grupo.userData.mats.lomoMat;
   if (m.map) m.map.dispose();
   m.map = t; m.needsUpdate = true;
@@ -358,13 +402,13 @@ function coloresDePortada(img) {
   const k = 0.82;
   const fondo = `rgb(${Math.round(r * k)},${Math.round(v * k)},${Math.round(a * k)})`;
   const lum = 0.2126 * r * k + 0.7152 * v * k + 0.0722 * a * k;
-  return [fondo, lum > 140 ? '#1d1712' : '#f3ead8'];
+  return [fondo, lum > 128 ? '#120e0a' : '#fbf6ea'];
 }
 
 // ---------------------------------------------------------------------------
 // Mueble: estantes de nogal barnizado. Coloca los libros y devuelve sus posiciones.
 // ---------------------------------------------------------------------------
-export function montarEstanteria(ctx, libros, { anchoInterior = 0.66, altoHueco = 0.31, estantesMin = 2 } = {}) {
+export function montarEstanteria(ctx, libros, { anchoInterior = 0.66, altoHueco = 0.31, estantesMin = 2, grupos = null } = {}) {
   const { THREE: T, escena, renderer } = ctx;
   const madera = new T.MeshPhysicalMaterial({
     map: texturaMadera(renderer, { repetir: [1, 1] }), roughness: 0.42, clearcoat: 0.55, clearcoatRoughness: 0.35,
@@ -375,19 +419,27 @@ export function montarEstanteria(ctx, libros, { anchoInterior = 0.66, altoHueco 
   maderaV.map.rotation = Math.PI / 2; maderaV.map.center.set(0.5, 0.5);
   const fondoMat = new T.MeshStandardMaterial({ map: texturaMadera(renderer, { base: '#3a2416', claro: '#40281a', oscuro: '#331f12', repetir: [2, 1] }), roughness: 0.75 });
 
-  // Reparto equilibrado en estantes, de arriba abajo y de izquierda a derecha.
+  // Reparto en estantes. Con "grupos" (géneros) cada grupo empieza en un estante nuevo;
+  // si no entra en uno, sigue en el siguiente. Sin grupos, se reparte equilibrado.
   const hueco = 0.0016, margen = 0.035, util = anchoInterior - margen * 2;
-  const anchoLibros = libros.reduce((a, g) => a + g.userData.grosor + hueco, 0);
-  const nFilas = Math.max(estantesMin, Math.ceil(anchoLibros / (util * 0.92)));
-  const porFila = anchoLibros / nFilas;
-  const filas = [[]]; let x = 0;
-  libros.forEach((g) => {
-    const w = g.userData.grosor + hueco;
-    const fila = filas[filas.length - 1];
-    if (fila.length && (x + w > util || (x + w / 2 > porFila && filas.length < nFilas))) { filas.push([]); x = 0; }
-    filas[filas.length - 1].push(g); x += w;
-  });
-  while (filas.length < estantesMin) filas.push([]);
+  const filas = [], nombres = [];
+  const llenar = (lista, nombre, porFila) => {
+    let fila = [], x = 0;
+    lista.forEach((g) => {
+      const w = g.userData.grosor + hueco;
+      if (fila.length && (x + w > util || (porFila && x + w / 2 > porFila))) { filas.push(fila); nombres.push(nombre); fila = []; x = 0; }
+      fila.push(g); x += w;
+    });
+    filas.push(fila); nombres.push(nombre);
+  };
+  if (grupos) {
+    grupos.forEach((gr) => llenar(gr.libros, gr.nombre, 0));
+  } else {
+    const ancho = libros.reduce((a, g) => a + g.userData.grosor + hueco, 0);
+    const n = Math.max(estantesMin, Math.ceil(ancho / (util * 0.92)));
+    llenar(libros, null, ancho / n);
+  }
+  while (filas.length < estantesMin) { filas.push([]); nombres.push(null); }
 
   const tabla = 0.022, lado = 0.024, fondoMueble = 0.3, zocalo = 0.07;
   const altoTotal = zocalo + filas.length * (altoHueco + tabla) + tabla;
@@ -413,8 +465,10 @@ export function montarEstanteria(ctx, libros, { anchoInterior = 0.66, altoHueco 
   const laton = new T.MeshStandardMaterial({ color: 0xb08a4a, metalness: 0.9, roughness: 0.32 });
   // Libros: los estantes de arriba primero, ligeras imperfecciones para que no parezcan de catálogo.
   const zFrente = fondoMueble / 2 - 0.012;
+  const infoFilas = [];
   filas.forEach((fila, i) => {
     const yBase = alturasEstante[filas.length - 1 - i];
+    infoFilas.push({ nombre: nombres[i], yBase, yCentro: yBase + altoHueco / 2, libros: fila });
     let cx = -anchoInterior / 2 + margen;
     fila.forEach((g, j) => {
       const { grosor, alto, fondo, libro } = g.userData;
@@ -438,7 +492,7 @@ export function montarEstanteria(ctx, libros, { anchoInterior = 0.66, altoHueco 
     }
   });
 
-  return { mueble, altoTotal, anchoTotal, alturasEstante, zFrente };
+  return { mueble, altoTotal, anchoTotal, alturasEstante, zFrente, filas: infoFilas, fondoMueble };
 }
 
 // Interpolación suave para las animaciones.

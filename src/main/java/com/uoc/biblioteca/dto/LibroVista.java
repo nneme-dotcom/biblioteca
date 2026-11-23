@@ -10,6 +10,7 @@ public record LibroVista(
         List<String> autores,
         Integer anio,
         String isbn,
+        String genero,
         boolean disponible,
         boolean favorito,
         PrestamoVista prestamo) {

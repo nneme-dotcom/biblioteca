@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org">
+<html xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
 <head>
   <meta charset="UTF-8">
   <link rel="icon" href="data:,">
@@ -17,32 +17,36 @@
         "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/" } }
   </script>
 </head>
-<body class="pagina3d">
-<!-- Catálogo del socio: una estantería de nogal con los libros de verdad (portadas de Open Library). -->
+<body class="pagina3d" th:attr="data-socio=${#authentication.name}">
+<!-- Catálogo del socio: una estantería de nogal con un estante por género y los libros de verdad. -->
 <nav th:replace="~{fragments/menu :: menu}"></nav>
 <main class="sala3d">
-  <div id="escena" class="escena3d" role="img" aria-label="Estantería 3D con los libros del catálogo"></div>
+  <div id="escena" class="escena3d" role="img" aria-label="Estantería 3D con los libros del catálogo ordenados por género"></div>
 
   <div class="hud">
     <h1>Catálogo</h1>
     <p id="contador">Cargando libros…</p>
-    <p>Pasá el ratón por los lomos y hacé clic en un libro para verlo. Arrastrá para girar, rueda para acercar.</p>
-    <div class="leyenda">
-      <span><i style="background:#9e1b22"></i>Cinta roja: favorito</span>
-      <span><i style="background:#f3ecd9"></i>Etiqueta: prestado</span>
-    </div>
+    <div id="nav-generos" class="nav-generos" aria-label="Ir a un género"></div>
+    <p>Pasá el ratón por los lomos y hacé clic en un libro. Arrastrá para girar, rueda para acercar.</p>
+    <fieldset class="modo-ficha">
+      <legend>Al abrir un libro, mostrar:</legend>
+      <label><input type="radio" name="modo-ficha" value="real"> Ficha de biblioteca</label>
+      <label><input type="radio" name="modo-ficha" value="simple"> Formulario simple</label>
+    </fieldset>
     <p><a th:href="@{/libros(vista='tabla')}">Ver el catálogo como lista</a></p>
   </div>
 
   <div id="cargando" class="cargando">Montando la estantería…</div>
 
+  <!-- Formulario simple (el de antes). -->
   <aside id="ficha" class="ficha" hidden aria-live="polite">
-    <button id="cerrar-ficha" class="cerrar" type="button" aria-label="Volver a la estantería">✕</button>
+    <button class="cerrar" type="button" data-cerrar-ficha aria-label="Volver a la estantería">✕</button>
     <img id="ficha-portada" alt="">
     <h2 id="ficha-titulo"></h2>
     <p id="ficha-autores" class="autores"></p>
     <span id="ficha-estado" class="estado"></span>
     <dl>
+      <dt>Género</dt><dd id="ficha-genero"></dd>
       <dt>Año</dt><dd id="ficha-anio"></dd>
       <dt>ISBN</dt><dd id="ficha-isbn"></dd>
     </dl>
@@ -54,6 +58,42 @@
       <a th:href="@{/user/prestamos}">Ver mis préstamos</a>
     </div>
   </aside>
+
+  <!-- Ficha de préstamo de cartulina, como las de las bibliotecas de antes. -->
+  <aside id="ficha-real" class="ficha-real" hidden aria-live="polite">
+    <div class="tarjeta">
+      <span id="fr-clip" class="clip" aria-hidden="true" hidden></span>
+      <header>
+        <span>BIBLIOTECA FP065</span>
+        <span id="fr-registro"></span>
+      </header>
+      <h2>Ficha de préstamo</h2>
+      <div class="fr-cabecera">
+        <img id="fr-portada" alt="">
+        <dl>
+          <dt>Signatura</dt><dd id="fr-signatura"></dd>
+          <dt>Autor</dt><dd id="fr-autor"></dd>
+          <dt>Título</dt><dd id="fr-titulo"></dd>
+          <dt>Sección</dt><dd id="fr-genero"></dd>
+          <dt>ISBN</dt><dd id="fr-isbn"></dd>
+        </dl>
+      </div>
+      <span id="fr-estado" class="fr-estado"></span>
+      <table class="renglones">
+        <thead><tr><th>Prestado el</th><th>Devolver antes del</th><th>Socio</th></tr></thead>
+        <tbody id="fr-renglones"></tbody>
+      </table>
+      <div id="fr-sello" class="sello" hidden aria-hidden="true"><b></b><span>Biblioteca FP065</span></div>
+      <div class="fr-acciones">
+        <button id="fr-sellar" class="boton-sello" type="button">Sellar préstamo · 14 días</button>
+        <button id="fr-favorito" class="boton-clip" type="button"></button>
+        <button id="fr-cerrar" class="boton-volver" type="button" data-cerrar-ficha>Devolver a la estantería</button>
+      </div>
+      <p class="fr-pie">Plazo de préstamo: 14 días. Esta ficha no debe retirarse del libro.</p>
+    </div>
+    <div class="bolsillo" aria-hidden="true"><span>BIBLIOTECA FP065</span><small>Fichas de préstamo</small></div>
+  </aside>
+
   <div id="tooltip" class="tip" hidden></div>
   <noscript><div class="cargando">La estantería necesita JavaScript. <a href="/libros?vista=tabla">Ver como lista</a></div></noscript>
 </main>

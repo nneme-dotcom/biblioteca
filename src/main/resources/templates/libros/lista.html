@@ -19,13 +19,14 @@
 
   <table>
     <thead>
-      <tr><th>Título</th><th>ISBN</th><th>Año</th><th>Disponible</th><th>Autores</th><th>Acciones</th></tr>
+      <tr><th>Título</th><th>ISBN</th><th>Año</th><th>Género</th><th>Disponible</th><th>Autores</th><th>Acciones</th></tr>
     </thead>
     <tbody>
       <tr th:each="libro : ${libros}">
         <td th:text="${libro.titulo}"></td>
         <td th:text="${libro.isbn}"></td>
         <td th:text="${libro.anio}"></td>
+        <td th:text="${libro.genero}"></td>
         <td th:text="${libro.disponible} ? 'Sí' : 'No'"></td>
         <td>
           <span th:each="autor, st : ${libro.autores}" th:text="${autor.nombre} + (${st.last} ? '' : ', ')"></span>

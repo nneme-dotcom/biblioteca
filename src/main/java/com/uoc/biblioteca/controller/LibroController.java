@@ -1,6 +1,7 @@
 package com.uoc.biblioteca.controller;
 
 import com.uoc.biblioteca.model.Autor;
+import com.uoc.biblioteca.model.Generos;
 import com.uoc.biblioteca.model.Libro;
 import com.uoc.biblioteca.repository.AutorRepository;
 import com.uoc.biblioteca.repository.LibroRepository;
@@ -42,6 +43,7 @@ public class LibroController {
     public String nuevo(Model model) {
         model.addAttribute("libro", new Libro());
         model.addAttribute("autores", autorRepository.findAll());
+        model.addAttribute("generos", Generos.TODOS);
         model.addAttribute("autorIdsSeleccionados", List.of());
         return "libros/formulario";
     }
@@ -52,6 +54,7 @@ public class LibroController {
         Libro libro = libroRepository.findById(id).orElseThrow();
         model.addAttribute("libro", libro);
         model.addAttribute("autores", autorRepository.findAll());
+        model.addAttribute("generos", Generos.TODOS);
         // Marcamos en la lista los autores que ya tiene el libro.
         model.addAttribute("autorIdsSeleccionados",
                 libro.getAutores().stream().map(Autor::getId).collect(Collectors.toList()));

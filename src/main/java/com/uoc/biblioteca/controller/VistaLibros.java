@@ -57,7 +57,7 @@ public class VistaLibros {
                     }
                     List<String> autores = l.getAutores().stream()
                             .map(Autor::getNombre).sorted().toList();
-                    return new LibroVista(l.getId(), l.getTitulo(), autores, l.getAnio(), l.getIsbn(),
+                    return new LibroVista(l.getId(), l.getTitulo(), autores, l.getAnio(), l.getIsbn(), l.getGenero(),
                             l.isDisponible(), favoritosIds.contains(l.getId()), pv);
                 })
                 .toList();

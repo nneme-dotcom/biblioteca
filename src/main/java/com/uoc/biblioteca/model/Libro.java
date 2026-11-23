@@ -21,6 +21,9 @@ public class Libro {
 
     private Integer anio;
 
+    // En qué estante va: Novela, Cuento, Clásicos o Género (ciencia ficción, policial y terror).
+    private String genero;
+
     // ¿Está en la estantería? Si alguien lo tiene prestado, no.
     private boolean disponible = true;
 
@@ -51,6 +54,9 @@ public class Libro {
 
     public Integer getAnio() { return anio; }
     public void setAnio(Integer anio) { this.anio = anio; }
+
+    public String getGenero() { return genero; }
+    public void setGenero(String genero) { this.genero = genero; }
 
     public boolean isDisponible() { return disponible; }
     public void setDisponible(boolean disponible) { this.disponible = disponible; }
