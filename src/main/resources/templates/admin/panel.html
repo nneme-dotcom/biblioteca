@@ -5,6 +5,8 @@
   <link rel="icon" href="data:,">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Biblioteca FP065 · Panel de préstamos</title>
+  <!-- Tema claro/oscuro compartido con la vista tradicional (antes de los estilos: sin parpadeo). -->
+  <th:block th:replace="~{fragments/menu :: tema}"></th:block>
   <link rel="stylesheet" th:href="@{/css/estilos.css}">
   <link rel="stylesheet" th:href="@{/css/estanteria.css}">
   <script type="importmap">
@@ -26,13 +28,22 @@
       <span class="kpi-cine ok"><b id="k-ok">–</b>en plazo</span>
       <span class="kpi-cine"><b id="k-estante">–</b>en la estantería</span>
     </div>
+    <!-- Barra de teclado: elegís un préstamo de la lista y lo levantás como con el ratón. -->
+    <div id="barra-panel" class="barra-acceso">
+      <label for="sel-prestamo">Préstamo</label>
+      <select id="sel-prestamo"><option value="">Elegí un préstamo…</option></select>
+      <button id="btn-ver" class="boton-cine" type="button">Ver quién lo tiene</button>
+      <button id="btn-soltar" class="boton-cine" type="button" hidden>Soltar (Esc)</button>
+    </div>
   </div>
   <div class="esquina">
+    <button type="button" class="boton-cine" data-tema-alternar>Tema</button>
     <a class="boton-cine" th:href="@{/vista/tradicional}">Vista tradicional</a>
     <form th:action="@{/logout}" method="post"><button class="boton-cine" type="submit">Salir</button></form>
   </div>
   <p id="ayuda" class="ayuda">Pasá el ratón por un libro para levantarlo · clic para ver quién lo tiene · arrastrá para girar la vista</p>
-  <div id="cargando" class="cargando">Cargando el panel…</div>
+  <p id="anuncio" class="solo-lector" aria-live="polite"></p>
+  <div id="cargando" class="cargando" role="status">Cargando el panel…</div>
   <div id="tooltip" class="tip" hidden></div>
 </main>
 <script type="module" th:src="@{/js/panel.js}"></script>

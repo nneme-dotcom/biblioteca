@@ -3,6 +3,7 @@
 <body>
 <!-- Menú de arriba, igual en todas las pantallas. Lo que se ve depende de quién inició sesión. -->
 <nav th:fragment="menu">
+  <th:block th:replace="~{fragments/menu :: tema}"></th:block>
   <a th:href="@{/}"><strong>Biblioteca</strong></a>
 
   <!-- Cualquiera con sesión ve el catálogo. -->
@@ -26,6 +27,9 @@
   <a sec:authorize="isAnonymous()" th:href="@{/login}">Entrar</a>
   <a sec:authorize="isAnonymous()" th:href="@{/registro}">Registrarse</a>
 
+  <!-- Modo claro / oscuro (se recuerda en este navegador y vale también en las vistas 3D). -->
+  <button type="button" class="tema-btn" data-tema-alternar>Tema</button>
+
   <!-- Con sesión: quién soy, qué rol tengo y botón para salir. -->
   <span sec:authorize="isAuthenticated()" class="quien">
     <span sec:authentication="name"></span>
@@ -36,6 +40,45 @@
     <button type="submit">Salir</button>
   </form>
 </nav>
+
+<!-- Tema claro/oscuro. Va inline (no en /js) porque /js pide sesión y también lo usan el login y la portada.
+     Se incluye en el menú y en el <head> de las vistas 3D, así todas las pantallas comparten el mismo
+     data-theme guardado en localStorage. Sin preferencia guardada, manda la del sistema. -->
+<th:block th:fragment="tema">
+<script>
+(function () {
+  var CLAVE = 'tema', raiz = document.documentElement;
+  var guardado = null;
+  try { guardado = localStorage.getItem(CLAVE); } catch (e) { /* sin almacenamiento */ }
+  if (guardado === 'light' || guardado === 'dark') raiz.setAttribute('data-theme', guardado);
+  if (window.__temaListo) return;
+  window.__temaListo = true;
+  var sistemaOscuro = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
+  function actual() {
+    var t = raiz.getAttribute('data-theme');
+    return t || (sistemaOscuro && sistemaOscuro.matches ? 'dark' : 'light');
+  }
+  function rotular() {
+    var oscuro = actual() === 'dark';
+    var botones = document.querySelectorAll('[data-tema-alternar]');
+    for (var i = 0; i < botones.length; i++) {
+      botones[i].textContent = oscuro ? '☀ Modo claro' : '☾ Modo oscuro';
+      botones[i].setAttribute('aria-label', oscuro ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro');
+    }
+  }
+  document.addEventListener('click', function (ev) {
+    var b = ev.target.closest && ev.target.closest('[data-tema-alternar]');
+    if (!b) return;
+    var nuevo = actual() === 'dark' ? 'light' : 'dark';
+    raiz.setAttribute('data-theme', nuevo);
+    try { localStorage.setItem(CLAVE, nuevo); } catch (e) { /* sin almacenamiento */ }
+    rotular();
+  });
+  if (sistemaOscuro && sistemaOscuro.addEventListener) sistemaOscuro.addEventListener('change', rotular);
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', rotular); else rotular();
+})();
+</script>
+</th:block>
 
 <!-- Mensajes de "todo bien" o de error que llegan después de una acción. -->
 <div th:fragment="avisos">

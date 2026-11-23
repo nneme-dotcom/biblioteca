@@ -1,15 +1,18 @@
 // Vista cinematográfica del admin: un escritorio con tres pilas de libros prestados.
 //   Vencidos · Vencen en 3 días o menos · En plazo
-// Pasá el ratón por un libro: levita y se separa de la pila. Hacé clic: aparece su etiqueta
-// (quién lo tiene, email y teléfono) y el libro empieza a girar. Clic fuera o Esc para dejarlo.
+// Pasá el ratón por un libro: sale de la pila y levita. Hacé clic: aparece su etiqueta
+// (quién lo tiene, email y teléfono) y el libro gira. Clic fuera o Esc para dejarlo.
+// Con teclado: la lista de préstamos (arriba a la izquierda) hace lo mismo.
 import * as THREE from 'three';
 import { CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
 import {
   crearEscenario, crearLibro, vestirConPortada, texturaMadera, prefiereQuieto, webglDisponible,
+  avisoSin3D, ajustarSombra,
 } from './biblioteca3d.js';
 
 const $ = (s) => document.querySelector(s);
-const quieto = prefiereQuieto();
+const quieto = prefiereQuieto;   // se consulta en vivo
+const damp = THREE.MathUtils.damp;
 const PILAS = [
   { clave: 'vencido', nombre: 'Vencidos', color: '#a1252b', x: -0.36 },
   { clave: 'pronto', nombre: 'Vencen pronto', color: '#b87a0a', x: 0 },
@@ -17,6 +20,7 @@ const PILAS = [
 ];
 const MESA = 0.76; // altura del tablero
 const suaveS = (t) => t * t * (3 - 2 * t);
+const clamp01 = (t) => Math.min(1, Math.max(0, t));
 const Z = 0.14;    // el escritorio un poco separado de la pared
 
 const estadoDe = (p) => (p.vencido ? 'vencido' : p.diasRestantes <= 3 ? 'pronto' : 'ok');
@@ -29,11 +33,21 @@ function textoDias(p) {
   return `Quedan ${n} ${n === 1 ? 'día' : 'días'}`;
 }
 function esc(s) { return String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
+function anunciar(texto) {
+  const a = $('#anuncio');
+  a.textContent = '';
+  requestAnimationFrame(() => { a.textContent = texto; });
+}
 
 if (!webglDisponible()) {
-  $('#cargando').innerHTML = 'Tu navegador no puede mostrar el panel 3D. <a href="/vista/tradicional">Ir a la vista tradicional</a>';
+  avisoSin3D($('#cargando'), 'Tu navegador no puede mostrar el panel 3D (necesita WebGL2).');
+  $('#barra-panel').hidden = true;
 } else {
-  iniciar().catch((e) => { console.error(e); $('#cargando').innerHTML = 'No se pudo cargar el panel. <a href="/vista/tradicional">Ir a la vista tradicional</a>'; });
+  iniciar().catch((e) => {
+    console.error(e);
+    avisoSin3D($('#cargando'), 'No se pudo cargar el panel.');
+    $('#barra-panel').hidden = true;
+  });
 }
 
 async function iniciar() {
@@ -55,20 +69,25 @@ async function iniciar() {
   // lámpara de escritorio: un círculo de luz cálida sobre las pilas
   const lampara = new THREE.SpotLight(0xffd29a, 6, 2.5, 0.75, 0.7, 1.4);
   lampara.position.set(-0.7, MESA + 0.75, -0.15 + Z); lampara.target.position.set(0, MESA, 0.05 + Z);
-  lampara.castShadow = true; lampara.shadow.mapSize.set(1024, 1024); lampara.shadow.bias = -0.0003;
+  lampara.castShadow = true; lampara.shadow.mapSize.set(1024, 1024);
   escena.add(lampara, lampara.target);
 
   // Escritorio de nogal con un cartapacio de cuero verde.
+  const escritorio = new THREE.Group();
   const tablero = new THREE.Mesh(new THREE.BoxGeometry(2.1, 0.05, 1.05), new THREE.MeshPhysicalMaterial({
     map: texturaMadera(renderer, { base: '#4a2c18', claro: '#5e3a20', oscuro: '#2a170b', repetir: [2, 1] }), roughness: 0.35, clearcoat: 0.6, clearcoatRoughness: 0.25,
   }));
-  tablero.position.set(0, MESA - 0.025, Z); tablero.receiveShadow = true; tablero.castShadow = true; escena.add(tablero);
+  tablero.position.set(0, MESA - 0.025, Z); tablero.receiveShadow = true; tablero.castShadow = true; escritorio.add(tablero);
   const cuero = new THREE.Mesh(new THREE.BoxGeometry(1.55, 0.004, 0.62), new THREE.MeshStandardMaterial({ color: 0x1f3a2c, roughness: 0.8 }));
-  cuero.position.set(0, MESA + 0.002, 0.04 + Z); cuero.receiveShadow = true; escena.add(cuero);
+  cuero.position.set(0, MESA + 0.002, 0.04 + Z); cuero.receiveShadow = true; escritorio.add(cuero);
   [-1, 1].forEach((s) => { // patas
     const pata = new THREE.Mesh(new THREE.BoxGeometry(0.08, MESA - 0.05, 0.9), new THREE.MeshStandardMaterial({ color: 0x2e1a0d, roughness: 0.6 }));
-    pata.position.set(s * 0.95, (MESA - 0.05) / 2, Z); escena.add(pata);
+    pata.position.set(s * 0.95, (MESA - 0.05) / 2, Z); escritorio.add(pata);
   });
+  escena.add(escritorio);
+  // Sombras ajustadas al escritorio: la del foco cubre el mueble entero; la de la lámpara, el cartapacio.
+  ajustarSombra(foco, escritorio);
+  ajustarSombra(lampara, cuero, { margen: 1.3, bias: -0.0002, normalBias: 0.008 });
 
   // --- Pilas -------------------------------------------------------------------
   const libros3d = [];
@@ -76,9 +95,9 @@ async function iniciar() {
     const lista = prestados.filter((l) => estadoDe(l.prestamo) === pila.clave)
       .sort((a, b) => b.prestamo.diasRestantes - a.prestamo.diasRestantes); // el más urgente, arriba
     let y = MESA + 0.004;
-    lista.forEach((l, i) => {
+    lista.forEach((l) => {
       const g = crearLibro(l);
-      const { grosor, alto } = g.userData;
+      const { grosor } = g.userData;
       // tumbado: la tapa mira arriba y el lomo hacia nosotros
       const r = Math.sin(l.id * 12.9898) * 0.5;
       g.rotation.set(0, r * 0.22, Math.PI / 2);
@@ -86,9 +105,10 @@ async function iniciar() {
       g.userData.base = { pos: g.position.clone(), rot: g.rotation.clone() };
       g.userData.pila = pila; g.userData.flota = 0; g.userData.giro = 0;
       escena.add(g); libros3d.push(g);
-      vestirConPortada(g, renderer);
+      vestirConPortada(g, renderer);   // la cola de biblioteca3d.js baja de a 6 como mucho
       y += grosor + 0.0015;
     });
+    pila.tope = y;   // altura de la cara de arriba de la pila
     // etiqueta de papel con el nombre de la pila
     const div = document.createElement('div');
     div.className = 'etiqueta-pila'; div.style.setProperty('--c', pila.color);
@@ -98,6 +118,12 @@ async function iniciar() {
       const vacio = document.createElement('div'); vacio.className = 'pila-vacia'; vacio.textContent = 'Ninguno';
       const v = new CSS2DObject(vacio); v.position.set(pila.x, MESA + 0.03, 0.06 + Z); escena.add(v);
     }
+  });
+  // Cuánto tiene que salir y subir cada libro para despegarse de su pila sin rozar a nadie.
+  libros3d.forEach((g) => {
+    const u = g.userData;
+    u.salida = u.fondo + 0.04;                                       // fuera de la huella de la pila
+    u.alturaLibre = Math.max(0.08, u.pila.tope - u.base.pos.y + 0.1);  // por encima del tope
   });
   $('#cargando').hidden = true;
 
@@ -136,6 +162,27 @@ async function iniciar() {
   });
   document.addEventListener('keydown', (ev) => { if (ev.key === 'Escape') soltar(); });
 
+  // --- Barra de teclado: lista de préstamos agrupada por pila ----------------------
+  const sel = $('#sel-prestamo'), btnVer = $('#btn-ver'), btnSoltar = $('#btn-soltar');
+  const porId = new Map(libros3d.map((g) => [String(g.userData.libro.id), g]));
+  PILAS.forEach((pila) => {
+    const lista = libros3d.filter((g) => g.userData.pila === pila);
+    if (!lista.length) return;
+    const og = document.createElement('optgroup'); og.label = `${pila.nombre} (${lista.length})`;
+    lista.forEach((g) => {
+      const l = g.userData.libro;
+      og.append(new Option(`${l.titulo} — ${l.prestamo.socio} · ${textoDias(l.prestamo)}`, l.id));
+    });
+    sel.append(og);
+  });
+  if (!libros3d.length) { sel.disabled = true; btnVer.disabled = true; }
+  btnVer.addEventListener('click', () => {
+    const g = porId.get(sel.value);
+    if (g) elegir(g); else anunciar('Elegí un préstamo de la lista.');
+  });
+  sel.addEventListener('keydown', (ev) => { if (ev.key === 'Enter') { ev.preventDefault(); btnVer.click(); } });
+  btnSoltar.addEventListener('click', () => soltar());
+
   function elegir(g) {
     elegido = g; tip.hidden = true;
     const l = g.userData.libro, p = l.prestamo, e = estadoDe(p);
@@ -152,34 +199,50 @@ async function iniciar() {
         <dt>Devolver antes del</dt><dd>${fecha(p.fechaDevolucion)}</dd>
       </dl>`;
     ficha.hidden = false;
+    sel.value = String(l.id); btnSoltar.hidden = false;
+    anunciar(`«${l.titulo}». ${textoDias(p)}. Lo tiene ${p.socio}, email ${p.email}` +
+      `${p.telefono ? ', teléfono ' + p.telefono : ''}. Devolver antes del ${fecha(p.fechaDevolucion)}. Escape para dejarlo.`);
   }
-  function soltar() { elegido = null; ficha.hidden = true; }
+  function soltar() {
+    if (!elegido) return;
+    const l = elegido.userData.libro;
+    elegido = null; ficha.hidden = true;
+    const enfocado = document.activeElement;
+    btnSoltar.hidden = true;
+    if (enfocado === btnSoltar || enfocado === document.body) sel.focus();
+    anunciar(`Dejaste «${l.titulo}» en su pila.`);
+  }
 
-  // --- Animación: levitar, separarse y girar (todo con transiciones suaves) -------
-  const q = new THREE.Quaternion(), qGiro = new THREE.Quaternion(), eY = new THREE.Vector3(0, 1, 0);
+  // --- Animación: salir, levitar, enderezarse y girar (independiente de los FPS) ------
+  // Fase 1 (0 → 0.4): sale hacia adelante en Z hasta quedar fuera de la huella de la pila.
+  //                   Así no atraviesa los libros que tiene encima.
+  // Fase 2 (0.4 → 0.75): ya libre, sube en Y por encima del tope de la pila.
+  // Fase 3 (0.75 → 1): se endereza mostrando la portada; si está elegido, gira sobre sí mismo.
+  const q = new THREE.Quaternion(), qGiro = new THREE.Quaternion(), qEnd = new THREE.Quaternion();
+  const eEnd = new THREE.Euler(), eY = new THREE.Vector3(0, 1, 0);
   alCuadro.push((dt, t) => {
+    const ya = quieto();
     libros3d.forEach((g) => {
-      const b = g.userData.base;
-      const objetivo = g === elegido ? 1 : g === encima ? 0.6 : 0;
-      const vel = quieto ? 1 : 1 - Math.exp(-dt * 6);
-      g.userData.flota += (objetivo - g.userData.flota) * vel;
-      const f = g.userData.flota;
-      const lado = Math.sign(b.pos.x - g.userData.pila.x) || 1;
-      // primero se desliza hacia adelante, fuera de la pila (así no atraviesa los de arriba),
-      // y después levita
-      const sal = suaveS(Math.min(1, f * 1.7));
-      const sube = suaveS(Math.max(0, (f - 0.25) / 0.75));
-      g.position.set(
-        b.pos.x + sal * 0.03 * lado,
-        b.pos.y + sube * 0.13 + (f > 0.02 && !quieto ? Math.sin(t * 2.2 + b.pos.y * 40) * 0.005 * f : 0),
-        b.pos.z + sal * 0.2);
-      // al elegirlo: se endereza mostrando la portada y gira sobre sí mismo
-      if (g === elegido && !quieto) g.userData.giro += dt * 1.1;
-      else g.userData.giro *= Math.max(0, 1 - dt * 4);
+      const u = g.userData, b = u.base;
+      const objetivo = g === elegido ? 1 : g === encima ? 0.55 : 0;
+      u.flota = ya ? objetivo : damp(u.flota, objetivo, 6, dt);
+      const f = u.flota;
+      const sal = suaveS(clamp01(f / 0.4));
+      const sube = suaveS(clamp01((f - 0.4) / 0.35));
+      const endereza = suaveS(clamp01((f - 0.75) / 0.25));
+      const lado = Math.sign(b.pos.x - u.pila.x) || 1;
+      const vaiven = sube > 0 && !ya ? Math.sin(t * 2.2 + b.pos.y * 40) * 0.005 * sube : 0;
+      g.position.set(b.pos.x + sal * 0.03 * lado, b.pos.y + sube * u.alturaLibre + vaiven, b.pos.z + sal * u.salida);
+      // giro continuo solo con el libro ya enderezado y si no pediste movimiento reducido
+      if (g === elegido && !ya && endereza > 0.98) u.giro += dt * 1.1;
+      else {
+        u.giro = Math.atan2(Math.sin(u.giro), Math.cos(u.giro));   // vuelve por el camino corto
+        u.giro = ya ? 0 : damp(u.giro, 0, 4, dt);
+      }
       q.setFromEuler(b.rot);
-      const enderezar = new THREE.Quaternion().setFromEuler(new THREE.Euler(-0.5 * suaveS(Math.max(0, (f - 0.3) / 0.7)), 0, 0));
-      qGiro.setFromAxisAngle(eY, g.userData.giro);
-      g.quaternion.copy(qGiro).multiply(enderezar).multiply(q);
+      qEnd.setFromEuler(eEnd.set(-0.5 * endereza, 0, 0));
+      qGiro.setFromAxisAngle(eY, u.giro);
+      g.quaternion.copy(qGiro).multiply(qEnd).multiply(q);
     });
     if (elegido) fichaObj.position.copy(elegido.position).add(new THREE.Vector3(0.2, 0.05, 0));
   });

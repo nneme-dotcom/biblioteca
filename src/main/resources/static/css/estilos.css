@@ -1,34 +1,81 @@
-/* Estilos comunes a todas las pantallas.
-   Los colores van en variables: un juego para modo claro y otro para modo oscuro,
-   los dos con buen contraste para que todo se lea. */
+/* Estilos comunes a todas las pantallas (vista tradicional y vistas 3D).
+   Paleta única en variables, con un juego para modo claro y otro para modo oscuro, los dos con
+   contraste AA. El modo sale del sistema, salvo que lo elijas con el botón de tema: ahí se guarda
+   data-theme="light|dark" en <html> (localStorage) y vale en todas las pantallas.
+   Los nombres viejos (--fondo, --texto, ...) quedan como alias de los nuevos. */
 :root {
-  color-scheme: light dark;
-  --fondo: #ffffff;
-  --texto: #1a1a1a;
+  color-scheme: light;
+  --bg-app: #ffffff;
+  --bg-surface: #f4f4f4;
+  --text-primary: #1a1a1a;
+  --accent-brass: #8a6416;          /* latón: 5.4:1 sobre blanco */
+  --border-subtle: #d0d0d0;
   --texto-suave: #555555;
-  --borde: #d0d0d0;
-  --superficie: #f4f4f4;
   --enlace: #0a58ca;
   --campo-fondo: #ffffff;
   --campo-borde: #8a8a8a;
   --ok-fondo: #e3fff7;   --ok-borde: #13a383;   --ok-texto: #0b4d3e;
   --error-fondo: #ffe8e8; --error-borde: #d33;   --error-texto: #7a1414;
   --acento: #3cffd0;     --acento-texto: #000000;
+  /* Carteles flotantes de las vistas 3D */
+  --hud-bg: rgba(251, 248, 241, 0.94);
+  --hud-text: #1d1a16;
+  --hud-text-suave: #4a4236;
+  --hud-border: rgba(60, 45, 20, 0.28);
+  --estado-vencido: #a1252b; --estado-pronto: #8a5a00; --estado-ok: #1d6b45; --estado-mio: #0f6b5c;
 }
 @media (prefers-color-scheme: dark) {
-  :root {
-    --fondo: #121212;
-    --texto: #ececec;
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg-app: #121212;
+    --bg-surface: #1e1e1e;
+    --text-primary: #ececec;
+    --accent-brass: #d9b25f;        /* 9.4:1 sobre el fondo oscuro */
+    --border-subtle: #3d3d3d;
     --texto-suave: #b5b5b5;
-    --borde: #3d3d3d;
-    --superficie: #1e1e1e;
     --enlace: #8ab4ff;
     --campo-fondo: #1e1e1e;
     --campo-borde: #8a8a8a;
     --ok-fondo: #0f2e27;   --ok-borde: #3cffd0;   --ok-texto: #c9fff1;
     --error-fondo: #3a1414; --error-borde: #ff7b7b; --error-texto: #ffd6d6;
+    --hud-bg: rgba(16, 12, 9, 0.88);
+    --hud-text: #f4efe6;
+    --hud-text-suave: #d9d0c2;
+    --hud-border: rgba(255, 255, 255, 0.22);
+    --estado-vencido: #ff8a8a; --estado-pronto: #ffc95c; --estado-ok: #5ff0bc; --estado-mio: #6fe0c9;
   }
 }
+/* Lo mismo, cuando lo elegís a mano con el botón de tema. */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg-app: #121212;
+  --bg-surface: #1e1e1e;
+  --text-primary: #ececec;
+  --accent-brass: #d9b25f;
+  --border-subtle: #3d3d3d;
+  --texto-suave: #b5b5b5;
+  --enlace: #8ab4ff;
+  --campo-fondo: #1e1e1e;
+  --campo-borde: #8a8a8a;
+  --ok-fondo: #0f2e27;   --ok-borde: #3cffd0;   --ok-texto: #c9fff1;
+  --error-fondo: #3a1414; --error-borde: #ff7b7b; --error-texto: #ffd6d6;
+  --hud-bg: rgba(16, 12, 9, 0.88);
+  --hud-text: #f4efe6;
+  --hud-text-suave: #d9d0c2;
+  --hud-border: rgba(255, 255, 255, 0.22);
+  --estado-vencido: #ff8a8a; --estado-pronto: #ffc95c; --estado-ok: #5ff0bc; --estado-mio: #6fe0c9;
+}
+/* Alias: el resto de las hojas sigue usando estos nombres. */
+:root {
+  --fondo: var(--bg-app);
+  --superficie: var(--bg-surface);
+  --texto: var(--text-primary);
+  --borde: var(--border-subtle);
+}
+
+/* Solo para lectores de pantalla (anuncios aria-live). */
+.solo-lector { position: absolute !important; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden;
+               clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; border: 0; }
 
 body { font-family: Arial, sans-serif; margin: 0; background: var(--fondo); color: var(--texto); line-height: 1.45; }
 a { color: var(--enlace); }
@@ -42,6 +89,7 @@ nav .quien { color: #3cffd0; font-size: 14px; }
 nav .rol { background: var(--acento); color: var(--acento-texto); border-radius: 10px; padding: 2px 8px; font-size: 12px; margin-left: 6px; }
 nav form { margin: 0; }
 nav button { background: transparent; color: #fff; border: 1px solid #fff; border-radius: 4px; padding: 4px 10px; cursor: pointer; }
+nav a:focus-visible, nav button:focus-visible { outline: 2px solid #8ab4ff; outline-offset: 2px; }  /* el menú siempre es oscuro */
 
 main { padding: 20px; }
 table { border-collapse: collapse; width: 100%; }

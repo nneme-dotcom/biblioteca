@@ -8,6 +8,8 @@
   <!-- Token CSRF para las acciones que se hacen sin recargar (préstamo y favoritos). -->
   <meta name="_csrf" th:content="${_csrf.token}">
   <meta name="_csrf_header" th:content="${_csrf.headerName}">
+  <!-- Tema claro/oscuro compartido con la vista tradicional (antes de los estilos: sin parpadeo). -->
+  <th:block th:replace="~{fragments/menu :: tema}"></th:block>
   <link rel="stylesheet" th:href="@{/css/estilos.css}">
   <link rel="stylesheet" th:href="@{/css/estanteria.css}">
   <!-- three.js desde su CDN oficial (versión fija). -->
@@ -22,15 +24,36 @@
 <main class="sala3d">
   <div id="escena" class="escena3d" role="img" aria-label="Estantería 3D con los libros de la biblioteca ordenados por género"></div>
 
-  <!-- Lo único fijo en pantalla: ir a la vista tradicional y salir. -->
+  <!-- Arriba a la izquierda, discreto: filtro visual y la barra para manejar todo con teclado. -->
+  <section id="controles" class="control-cine" aria-label="Controles de la estantería">
+    <fieldset id="filtro" class="filtro-cine">
+      <legend>Mostrar</legend>
+      <label><input type="radio" name="filtro" value="todos" checked> Todos</label>
+      <label><input type="radio" name="filtro" value="disponibles"> Disponibles</label>
+      <label><input type="radio" name="filtro" value="mios"> Mis préstamos</label>
+      <label><input type="radio" name="filtro" value="favoritos"> Favoritos</label>
+    </fieldset>
+    <div class="barra-acceso">
+      <label for="sel-libro">Libro</label>
+      <select id="sel-libro"><option value="">Elegí un libro…</option></select>
+      <button id="btn-abrir" class="boton-cine" type="button">Abrir</button>
+      <button id="btn-sellar" class="boton-cine" type="button" hidden>Sellar préstamo</button>
+      <button id="btn-fav" class="boton-cine" type="button" aria-pressed="false" hidden>☆ Añadir a favoritos</button>
+      <button id="btn-cerrar" class="boton-cine" type="button" hidden>Cerrar (Esc)</button>
+    </div>
+  </section>
+
+  <!-- Lo único fijo en pantalla: tema, ir a la vista tradicional y salir. -->
   <div class="esquina">
+    <button type="button" class="boton-cine" data-tema-alternar>Tema</button>
     <a class="boton-cine" th:href="@{/vista/tradicional}">Vista tradicional</a>
     <form th:action="@{/logout}" method="post"><button class="boton-cine" type="submit">Salir</button></form>
   </div>
 
   <p id="ayuda" class="ayuda" aria-live="polite"></p>
   <p id="aviso" class="aviso-cine" role="status" hidden></p>
-  <div id="cargando" class="cargando">Montando la estantería…</div>
+  <p id="anuncio" class="solo-lector" aria-live="polite"></p>
+  <div id="cargando" class="cargando" role="status">Montando la estantería…</div>
   <div id="tooltip" class="tip" hidden></div>
   <noscript><div class="cargando">La vista cinematográfica necesita JavaScript. <a href="/vista/tradicional">Ir a la vista tradicional</a></div></noscript>
 </main>

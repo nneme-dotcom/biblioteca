@@ -26,14 +26,15 @@
 .hud { transition: opacity .3s; }
 .con-ficha .hud { opacity: 0; pointer-events: none; }
 
-/* Cartel que sigue al ratón. */
+/* Cartel que sigue al ratón (colores del tema). */
 .tip { position: fixed; z-index: 20; pointer-events: none; max-width: 280px; padding: 9px 12px; border-radius: 8px;
-       background: #111; color: #fff; font-size: 14px; line-height: 1.35; box-shadow: 0 6px 20px rgba(0,0,0,.45);
-       display: flex; flex-direction: column; gap: 2px; }
+       background: var(--hud-bg); color: var(--hud-text); border: 1px solid var(--hud-border);
+       font-size: 14px; line-height: 1.35; box-shadow: 0 6px 20px rgba(0,0,0,.45);
+       display: flex; flex-direction: column; gap: 2px; backdrop-filter: blur(6px); }
 .tip[hidden] { display: none; }
-.tip span { color: #d6d6d6; font-size: 13px; }
+.tip span { color: var(--hud-text-suave); font-size: 13px; }
 .tip em { font-style: normal; font-weight: 700; font-size: 13px; }
-.tip .ok { color: #4fe3ae; } .tip .no, .tip .vencido { color: #ff8a8a; } .tip .pronto { color: #ffc95c; }
+.tip .ok { color: var(--estado-ok); } .tip .no, .tip .vencido { color: var(--estado-vencido); } .tip .pronto { color: var(--estado-pronto); }
 
 /* Ficha del libro elegido (derecha). Usa los colores del modo claro/oscuro. */
 .ficha { position: absolute; top: 16px; right: 16px; bottom: 16px; width: 340px; max-width: calc(100% - 32px);
@@ -67,8 +68,7 @@
 .kpi { padding: 10px 12px; border-radius: 8px; background: var(--superficie); border: 1px solid var(--borde); }
 .kpi b { display: block; font-size: 28px; line-height: 1.1; }
 .kpi span { font-size: 13px; color: var(--texto-suave); }
-.kpi.vencido b { color: #e03131; } .kpi.pronto b { color: #c27c00; } .kpi.ok b { color: #0f9d6e; }
-@media (prefers-color-scheme: dark) { .kpi.vencido b { color: #ff7b7b; } .kpi.pronto b { color: #ffc95c; } .kpi.ok b { color: #4fe3ae; } }
+.kpi.vencido b { color: var(--estado-vencido); } .kpi.pronto b { color: var(--estado-pronto); } .kpi.ok b { color: var(--estado-ok); }
 #lista-prestamos { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
 #lista-prestamos li { display: grid; grid-template-columns: 12px 1fr; gap: 2px 10px; align-items: start; padding: 10px 12px;
                       border-radius: 8px; border: 1px solid var(--borde); background: var(--superficie); cursor: default; }
@@ -78,8 +78,7 @@
 #lista-prestamos li em { grid-column: 2; font-style: normal; font-weight: 700; font-size: 14px; }
 #lista-prestamos .punto { width: 12px; height: 12px; border-radius: 50%; margin-top: 4px; }
 #lista-prestamos .ok .punto { background: #2bd99a; } #lista-prestamos .pronto .punto { background: #ffb020; } #lista-prestamos .vencido .punto { background: #ff3b3b; }
-#lista-prestamos .vencido em { color: #d42f2f; } #lista-prestamos .pronto em { color: #a86a00; } #lista-prestamos .ok em { color: #0d8a60; }
-@media (prefers-color-scheme: dark) { #lista-prestamos .vencido em { color: #ff8a8a; } #lista-prestamos .pronto em { color: #ffc95c; } #lista-prestamos .ok em { color: #4fe3ae; } }
+#lista-prestamos .vencido em { color: var(--estado-vencido); } #lista-prestamos .pronto em { color: var(--estado-pronto); } #lista-prestamos .ok em { color: var(--estado-ok); }
 #lista-prestamos .vacio { display: block; color: var(--texto-suave); }
 
 /* Etiquetas que acompañan a cada libro prestado en la escena. */
@@ -95,7 +94,7 @@
 .etiqueta3d.activo { transform: scale(1.12); box-shadow: 0 0 0 2px #fff; }
 
 @media (max-width: 900px) {
-  .pagina3d { height: auto; overflow: visible; }
+  .pagina3d:not(.cine) { height: auto; overflow: visible; }
   .panel3d { grid-template-columns: 1fr; }
   .panel3d .sala3d { height: 60vh; }
   .panel-lado { border-left: 0; border-top: 1px solid var(--borde); }
@@ -184,33 +183,67 @@
 }
 
 /* --- Vista cinematográfica: pantalla completa, sin menú --------------------- */
-.cine .sala3d { height: 100vh; }
-.esquina { position: absolute; top: 14px; right: 14px; z-index: 4; display: flex; gap: 8px; }
+/* Pantalla completa siempre, también en ventanas estrechas (antes una regla para móviles dejaba la escena con 0 px de alto). */
+.pagina3d.cine { height: 100vh; overflow: hidden; }
+.cine > .sala3d { flex: none; height: 100vh; }
+.esquina { position: absolute; top: 14px; right: 14px; z-index: 4; display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; max-width: 50%; }
 .esquina form { margin: 0; }
+/* Botones y carteles flotantes: mismos tokens que la vista tradicional (cambian con el tema). */
 .boton-cine { display: inline-block; padding: 8px 14px; border-radius: 20px; font: 600 14px Arial, sans-serif; cursor: pointer;
-              background: rgba(16,12,9,.82); color: #f4efe6; border: 1px solid rgba(255,255,255,.28); text-decoration: none; }
-.boton-cine:hover { background: rgba(40,30,20,.95); border-color: #d9b25f; }
+              background: var(--hud-bg); color: var(--hud-text); border: 1px solid var(--hud-border); text-decoration: none; }
+.boton-cine:hover { border-color: var(--accent-brass); }
+.boton-cine:focus-visible, .control-cine select:focus-visible, .filtro-cine input:focus-visible + span,
+.filtro-cine label:focus-within { outline: 2px solid var(--accent-brass); outline-offset: 2px; }
 .ayuda { position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); z-index: 3; margin: 0; max-width: calc(100% - 40px);
-         padding: 8px 16px; border-radius: 20px; background: rgba(16,12,9,.82); color: #efe7da; font-size: 14px; text-align: center; }
+         padding: 8px 16px; border-radius: 20px; background: var(--hud-bg); color: var(--hud-text); border: 1px solid var(--hud-border);
+         font-size: 14px; text-align: center; }
 .aviso-cine { position: absolute; left: 50%; top: 18px; transform: translateX(-50%); z-index: 4; margin: 0; max-width: calc(100% - 300px);
-              padding: 10px 18px; border-radius: 10px; background: #0f2e27; color: #d6fff3; border: 1px solid #3cffd0; font-size: 15px; }
-.aviso-cine.error { background: #3a1414; color: #ffd6d6; border-color: #ff7b7b; }
+              padding: 10px 18px; border-radius: 10px; background: var(--ok-fondo); color: var(--ok-texto); border: 1px solid var(--ok-borde); font-size: 15px; }
+.aviso-cine.error { background: var(--error-fondo); color: var(--error-texto); border-color: var(--error-borde); }
 .aviso-cine[hidden] { display: none; }
-.tip .mio { color: #6fe0c9; }
+.tip .mio { color: var(--estado-mio); }
+
+/* Filtro y barra de teclado: una cajita discreta arriba a la izquierda. */
+.control-cine { position: absolute; top: 14px; left: 14px; z-index: 4; display: flex; flex-direction: column; gap: 8px;
+                max-width: min(460px, calc(100% - 28px)); padding: 8px 10px; border-radius: 12px;
+                background: var(--hud-bg); color: var(--hud-text); border: 1px solid var(--hud-border); font: 13px/1.3 Arial, sans-serif; }
+.control-cine[hidden] { display: none; }
+.filtro-cine { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin: 0; padding: 0; border: 0; }
+.filtro-cine legend { float: left; margin-right: 6px; padding: 0; font-weight: 700; color: var(--hud-text-suave); }
+.filtro-cine label { display: inline-flex; align-items: center; margin: 0; padding: 4px 10px; border-radius: 14px; cursor: pointer;
+                     border: 1px solid var(--hud-border); }
+.filtro-cine input { position: absolute; opacity: 0; width: 1px; height: 1px; }   /* el texto hace de botón */
+.filtro-cine label:has(input:checked) { background: var(--accent-brass); border-color: var(--accent-brass); color: var(--bg-app); font-weight: 700; }
+.barra-acceso { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.barra-acceso label { margin: 0; font-weight: 700; color: var(--hud-text-suave); }
+.barra-acceso select { width: auto; flex: 1 1 200px; min-width: 0; max-width: 100%; padding: 5px 6px; border-radius: 8px;
+                       background: var(--campo-fondo); color: var(--text-primary); border: 1px solid var(--campo-borde); }
+.barra-acceso .boton-cine { padding: 5px 11px; font-size: 13px; }
+.barra-acceso .boton-cine[hidden] { display: none; }
+.kpis-cine .barra-acceso { margin-top: 10px; }
+@media (max-width: 760px) {
+  .control-cine { top: auto; bottom: 64px; }
+  .esquina { max-width: calc(100% - 28px); }
+  .aviso-cine { max-width: calc(100% - 40px); top: 64px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .boton-cine, .filtro-cine label { transition: none; }
+  .capa-etiquetas .etiqueta-libro, .capa-etiquetas .ficha-socio { animation: none; }
+}
 
 /* --- Panel de control del admin -------------------------------------------- */
 .panel-control .sala3d { background: #070b12; }
 .panel-control .sala3d::after { background: radial-gradient(ellipse at 50% 40%, rgba(0,0,0,0) 60%, rgba(0,0,0,.55) 100%); }
-.kpis-cine { position: absolute; top: 14px; left: 16px; z-index: 3; padding: 12px 16px; border-radius: 12px;
-             background: rgba(8,14,24,.88); border: 1px solid rgba(120,170,230,.25); color: #e6eef8; }
-.kpis-cine h1 { margin: 0 0 8px; font-size: 18px; letter-spacing: 1px; text-transform: uppercase; color: #9fd0ff; }
+.kpis-cine { position: absolute; top: 14px; left: 16px; z-index: 3; padding: 12px 16px; border-radius: 12px; max-width: min(520px, calc(100% - 32px));
+             background: var(--hud-bg); border: 1px solid var(--hud-border); color: var(--hud-text); box-sizing: border-box; }
+.kpis-cine h1 { margin: 0 0 8px; font-size: 18px; letter-spacing: 1px; text-transform: uppercase; color: var(--accent-brass); }
 .fila-kpis { display: flex; flex-wrap: wrap; gap: 8px; }
-.kpi-cine { display: flex; flex-direction: column; min-width: 92px; padding: 8px 10px; border-radius: 8px; background: rgba(255,255,255,.05);
-            font-size: 12px; color: #b9c8da; border-top: 3px solid #5b7ea6; }
-.kpi-cine b { font-size: 28px; line-height: 1.1; color: #fff; }
-.kpi-cine.vencido { border-top-color: #ff4d4d; } .kpi-cine.vencido b { color: #ff8a8a; }
-.kpi-cine.pronto { border-top-color: #ffb020; } .kpi-cine.pronto b { color: #ffc95c; }
-.kpi-cine.ok { border-top-color: #2bd99a; } .kpi-cine.ok b { color: #5ff0bc; }
+.kpi-cine { display: flex; flex-direction: column; min-width: 92px; padding: 8px 10px; border-radius: 8px; background: var(--bg-surface);
+            font-size: 12px; color: var(--hud-text-suave); border-top: 3px solid var(--border-subtle); }
+.kpi-cine b { font-size: 28px; line-height: 1.1; color: var(--text-primary); }
+.kpi-cine.vencido { border-top-color: #ff4d4d; } .kpi-cine.vencido b { color: var(--estado-vencido); }
+.kpi-cine.pronto { border-top-color: #ffb020; } .kpi-cine.pronto b { color: var(--estado-pronto); }
+.kpi-cine.ok { border-top-color: #2bd99a; } .kpi-cine.ok b { color: var(--estado-ok); }
 .capa-etiquetas .tick { font: 600 12px Arial, sans-serif; color: #8fb2d8; }
 .capa-etiquetas .hoy { font: 700 14px Arial, sans-serif; color: #071422; background: #9fd0ff; padding: 3px 10px; border-radius: 12px; letter-spacing: 1px; }
 .capa-etiquetas .zona { font: 700 13px Arial, sans-serif; letter-spacing: 2px; padding: 3px 8px; border-radius: 4px; background: rgba(8,14,24,.85); }
@@ -238,7 +271,7 @@
 .ficha-socio.pronto .estado-socio { background: rgba(255,176,32,.15); color: #ffc95c; }
 .cerrar-ficha { position: absolute; top: 8px; right: 8px; width: 28px; height: 28px; border-radius: 50%; border: 1px solid rgba(255,255,255,.3);
                 background: transparent; color: #fff; cursor: pointer; }
-.tip .vencido { color: #ff8a8a; } .tip .pronto { color: #ffc95c; } .tip .ok { color: #5ff0bc; }
+.tip .vencido { color: var(--estado-vencido); } .tip .pronto { color: var(--estado-pronto); } .tip .ok { color: var(--estado-ok); }
 @media (max-width: 760px) { .kpis-cine { right: 16px; top: 60px; } .kpi-cine { min-width: 70px; } }
 
 /* --- Escritorio del admin ----------------------------------------------------- */

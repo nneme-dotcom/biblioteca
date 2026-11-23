@@ -7,6 +7,105 @@ import { CSS2DRenderer } from 'three/addons/renderers/CSS2DRenderer.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 
 // ---------------------------------------------------------------------------
+// Movimiento reducido: se lee en vivo, así si cambiás la preferencia del sistema se respeta al toque.
+// ---------------------------------------------------------------------------
+const _mqQuieto = window.matchMedia ? window.matchMedia('(prefers-reduced-motion: reduce)') : null;
+export const prefiereQuieto = () => !!(_mqQuieto && _mqQuieto.matches);
+
+// ---------------------------------------------------------------------------
+// Texturas de canvas nítidas en pantallas HiDPI. Todas las texturas dibujadas (lomos, placas,
+// ficha de préstamo, insignias) pasan por acá: mismo espacio de color, mipmaps y anisotropía.
+// Dibujás en píxeles "lógicos" y el canvas real se multiplica por la densidad de la pantalla
+// (máximo x2), sin pasarse de maxLado para no reventar la memoria de la GPU.
+// ---------------------------------------------------------------------------
+export const densidad = () => Math.min(window.devicePixelRatio || 1, 2);
+
+export function lienzoHD(w, h, { maxLado = 2048 } = {}) {
+  const f = Math.min(densidad(), maxLado / Math.max(w, h));
+  const c = document.createElement('canvas');
+  c.width = Math.max(1, Math.round(w * f)); c.height = Math.max(1, Math.round(h * f));
+  const g = c.getContext('2d');
+  g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high';
+  g.setTransform(c.width / w, 0, 0, c.height / h, 0, 0);
+  return [c, g];
+}
+
+// Arma (o refresca) la textura de un canvas con la configuración común.
+export function texturaCanvas(c, previa = null, { color = true } = {}) {
+  const t = previa && previa.image === c ? previa : new THREE.CanvasTexture(c);
+  if (color) t.colorSpace = THREE.SRGBColorSpace;
+  t.anisotropy = 8;                       // three lo recorta al máximo que soporte la placa
+  t.generateMipmaps = true;
+  t.minFilter = THREE.LinearMipmapLinearFilter; t.magFilter = THREE.LinearFilter;
+  t.needsUpdate = true;
+  return t;
+}
+
+// ---------------------------------------------------------------------------
+// Contraste WCAG: elegimos tinta oscura o clara según la luminancia relativa del fondo y,
+// si ninguna llega a 4.5:1, corremos el fondo un poco hasta que una llegue.
+// THREE.Color guarda los colores en lineal, que es justo lo que pide la fórmula de la WCAG.
+// ---------------------------------------------------------------------------
+export const TINTA_OSCURA = '#120e0a', TINTA_CLARA = '#fbf6ea';
+const _col = new THREE.Color(), _blanco = new THREE.Color(1, 1, 1);
+const luminancia = (c) => 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b;
+export const contraste = (la, lb) => (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05);
+const L_OSCURA = luminancia(new THREE.Color(TINTA_OSCURA)), L_CLARA = luminancia(new THREE.Color(TINTA_CLARA));
+
+export function tintaLegible(fondo, minimo = 4.5) {
+  _col.set(fondo);
+  for (let i = 0; i < 16; i++) {
+    const L = luminancia(_col);
+    const cO = contraste(L, L_OSCURA), cC = contraste(L, L_CLARA);
+    if (Math.max(cO, cC) >= minimo) return { fondo: '#' + _col.getHexString(), tinta: cO >= cC ? TINTA_OSCURA : TINTA_CLARA };
+    // gana la oscura → aclaramos el fondo; gana la clara → lo oscurecemos
+    if (cO >= cC) _col.lerp(_blanco, 0.15); else _col.multiplyScalar(0.82);
+  }
+  return { fondo: '#3a2e24', tinta: TINTA_CLARA };
+}
+
+// ---------------------------------------------------------------------------
+// Descargas con cola: como mucho 6 a la vez, cada una con 6 s de tope, y caché en memoria.
+// Así las 55 portadas no saturan la red ni se quedan colgadas.
+// ---------------------------------------------------------------------------
+const MAX_DESCARGAS = 6, ESPERA_MAX = 6000;
+let descargasActivas = 0;
+const enEspera = [];
+function enCola(tarea) {
+  return new Promise((ok, mal) => { enEspera.push({ tarea, ok, mal }); siguienteDescarga(); });
+}
+function siguienteDescarga() {
+  while (descargasActivas < MAX_DESCARGAS && enEspera.length) {
+    const { tarea, ok, mal } = enEspera.shift();
+    descargasActivas++;
+    Promise.resolve().then(tarea).then(ok, mal).finally(() => { descargasActivas--; siguienteDescarga(); });
+  }
+}
+
+// Open Library devuelve un pixel transparente de 1x1 cuando no tiene portada; con default=false da 404.
+export function sinPixelVacio(url) {
+  if (!/openlibrary\.org/.test(url) || /[?&]default=/.test(url)) return url;
+  return url + (url.includes('?') ? '&' : '?') + 'default=false';
+}
+
+const imagenes = new Map();
+export function cargarImagen(url) {
+  const u = sinPixelVacio(url);
+  if (!imagenes.has(u)) {
+    imagenes.set(u, enCola(() => new Promise((ok, mal) => {
+      const img = new Image();
+      img.crossOrigin = 'anonymous'; img.decoding = 'async';
+      const fin = (error) => { clearTimeout(reloj); img.onload = img.onerror = null; if (error) mal(error); else ok(img); };
+      const reloj = setTimeout(() => { fin(new Error('La portada tardó demasiado')); img.src = ''; }, ESPERA_MAX);
+      img.onload = () => fin(img.width > 2 && img.height > 2 ? null : new Error('Portada vacía'));
+      img.onerror = () => fin(new Error('No se pudo bajar la portada'));
+      img.src = u;
+    })));
+  }
+  return imagenes.get(u);
+}
+
+// ---------------------------------------------------------------------------
 // Portadas reales (Open Library). Los ISBN de los datos de ejemplo no coinciden con los de
 // Open Library, así que dejamos fijado el id de portada de cada libro por su título.
 // Los libros nuevos se buscan al momento por título y autor (y se guardan en el navegador).
@@ -86,8 +185,10 @@ export async function idPortada(libro) {
   try {
     const p = new URLSearchParams({ title: libro.titulo, fields: 'cover_i', limit: '5' });
     if (libro.autores && libro.autores[0]) p.set('author', libro.autores[0]);
-    const r = await fetch('https://openlibrary.org/search.json?' + p, { signal: AbortSignal.timeout(8000) });
-    const d = await r.json();
+    const d = await enCola(async () => {
+      const r = await fetch('https://openlibrary.org/search.json?' + p, { signal: AbortSignal.timeout(ESPERA_MAX) });
+      return r.json();
+    });
     const doc = (d.docs || []).find((x) => x.cover_i);
     guardado.escribir('portada:' + clave, doc ? String(doc.cover_i) : 'no');
     return doc ? doc.cover_i : null;
@@ -112,8 +213,9 @@ function lienzo(w, h) {
   return [c, c.getContext('2d')];
 }
 
+// Grano: trabaja sobre los píxeles reales del canvas (en los HiDPI son más que los lógicos).
 function ruido(ctx, w, h, alfa) {
-  const img = ctx.getImageData(0, 0, w, h);
+  const img = ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height);
   for (let i = 0; i < img.data.length; i += 4) {
     const n = (Math.random() - 0.5) * alfa;
     img.data[i] += n; img.data[i + 1] += n; img.data[i + 2] += n;
@@ -185,6 +287,47 @@ function bumpTela() {
   return _tela;
 }
 
+// Grano de papel (relieve muy fino) para las hojas, la guarda de la contratapa y la ficha.
+// Desde three r151 el bumpScale no depende del tamaño del objeto sino de cuánto cambia la textura
+// entre píxeles de pantalla: con 0.004 el grano no se ve, por eso el valor queda en una constante.
+export const RELIEVE_PAPEL = 0.05;
+let _papel;
+function bumpPapel() {
+  if (_papel) return _papel;
+  const [c, g] = lienzo(256, 256);
+  g.fillStyle = '#808080'; g.fillRect(0, 0, 256, 256);
+  ruido(g, 256, 256, 70);
+  for (let i = 0; i < 90; i++) { // fibras sueltas
+    g.strokeStyle = `rgba(${Math.random() < 0.5 ? '255,255,255' : '0,0,0'},${0.05 + Math.random() * 0.08})`;
+    g.lineWidth = 0.6; g.beginPath();
+    const x = Math.random() * 256, y = Math.random() * 256, a = Math.random() * Math.PI;
+    g.moveTo(x, y); g.lineTo(x + Math.cos(a) * 9, y + Math.sin(a) * 9); g.stroke();
+  }
+  _papel = new THREE.CanvasTexture(c); _papel.wrapS = _papel.wrapT = THREE.RepeatWrapping; _papel.repeat.set(5, 5);
+  return _papel;
+}
+
+// Latón cepillado: rayas finas horizontales en el color y en la rugosidad (el reflejo se "estira").
+function cepillado(ctx, w, h, clara, oscura) {
+  for (let i = 0; i < h * 1.4; i++) {
+    const y = Math.random() * h, largo = w * (0.25 + Math.random() * 0.75), x = Math.random() * (w - largo);
+    ctx.fillStyle = `rgba(${Math.random() < 0.5 ? clara : oscura},${0.03 + Math.random() * 0.09})`;
+    ctx.fillRect(x, y, largo, 0.6 + Math.random() * 0.9);
+  }
+}
+let _rugLaton;
+function rugosidadLaton() {
+  if (_rugLaton) return _rugLaton;
+  const [c, g] = lienzo(512, 512);
+  g.fillStyle = '#d0d0d0'; g.fillRect(0, 0, 512, 512);    // rugosidad base x0.8 aprox.
+  cepillado(g, 512, 512, '255,255,255', '90,90,90');
+  _rugLaton = new THREE.CanvasTexture(c); _rugLaton.wrapS = _rugLaton.wrapT = THREE.RepeatWrapping;
+  return _rugLaton;
+}
+export function materialLaton(extra = {}) {
+  return new THREE.MeshStandardMaterial({ color: 0xc19a52, metalness: 0.85, roughness: 0.32, roughnessMap: rugosidadLaton(), ...extra });
+}
+
 // ---------------------------------------------------------------------------
 // Escenario: renderer físicamente correcto, luz cálida de biblioteca, sala y cámara.
 // ---------------------------------------------------------------------------
@@ -193,23 +336,27 @@ export function crearEscenario(contenedor, { camara = [0, 0.62, 1.55], mira = [0
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.05;
+  renderer.toneMappingExposure = 1.08;
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   contenedor.appendChild(renderer.domElement);
 
   // Etiquetas HTML encima del 3D (texto nítido y legible, no dibujado en la escena).
+  // La capa entera deja pasar los clics a la escena; solo lo interactivo de adentro los toma.
   const etiquetas = new CSS2DRenderer();
   etiquetas.domElement.className = 'capa-etiquetas';
+  etiquetas.domElement.style.pointerEvents = 'none';
   contenedor.appendChild(etiquetas.domElement);
 
   const escena = new THREE.Scene();
   escena.background = new THREE.Color(0x141712);
   escena.fog = new THREE.Fog(0x141712, 2.6, 6);
-  // Reflejos realistas: un "cuarto" virtual que ilumina los materiales.
+  // Reflejos realistas (IBL) sin bajar ningún HDR: un "cuarto" virtual prefiltrado con PMREM.
   const pmrem = new THREE.PMREMGenerator(renderer);
-  escena.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
-  escena.environmentIntensity = 0.22;
+  const envRT = pmrem.fromScene(new RoomEnvironment(), 0.04);
+  pmrem.dispose();
+  escena.environment = envRT.texture;
+  escena.environmentIntensity = 0.55;
 
   const cam = new THREE.PerspectiveCamera(38, 1, 0.02, 30);
   cam.position.set(...camara);
@@ -229,7 +376,8 @@ export function crearEscenario(contenedor, { camara = [0, 0.62, 1.55], mira = [0
   foco.target.position.set(0, 0.45, 0);
   foco.castShadow = true;
   foco.shadow.mapSize.set(2048, 2048);
-  foco.shadow.bias = -0.0002; foco.shadow.normalBias = 0.02; foco.shadow.radius = 6;
+  // Valores de partida; ajustarSombra() los recalibra cuando ya está montado el mueble o el escritorio.
+  foco.shadow.bias = -0.00015; foco.shadow.normalBias = 0.012;
   escena.add(foco, foco.target);
   const relleno = new THREE.DirectionalLight(0x9fb4ff, 0.18); relleno.position.set(-2, 1.2, 1.5); escena.add(relleno);
   escena.add(new THREE.HemisphereLight(0xffe9cc, 0x2a1a10, 0.12));
@@ -250,19 +398,73 @@ export function crearEscenario(contenedor, { camara = [0, 0.62, 1.55], mira = [0
     renderer.setSize(w, h, false); etiquetas.setSize(w, h);
     cam.aspect = w / h; cam.updateProjectionMatrix();
   }
-  new ResizeObserver(ajustar).observe(contenedor); ajustar();
+  const observador = new ResizeObserver(ajustar);
+  observador.observe(contenedor); ajustar();
 
   const alCuadro = [];
   const reloj = new THREE.Clock();
   renderer.setAnimationLoop(() => {
-    const dt = Math.min(reloj.getDelta(), 0.05);
+    const dt = Math.min(reloj.getDelta(), 0.05);   // tope: si la pestaña se congela, nada pega un salto
     controles.update();
     alCuadro.forEach((f) => f(dt, reloj.elapsedTime));
     renderer.render(escena, cam);
     etiquetas.render(escena, cam);
   });
 
-  return { THREE, renderer, escena, cam, controles, foco, alCuadro };
+  const ctx = { THREE, renderer, escena, cam, controles, foco, alCuadro, envRT, etiquetas, observador };
+  // Al irte de la página se libera todo lo de la GPU. Si el navegador la guarda en caché (bfcache)
+  // y volvés con "atrás", se recarga para rearmar la escena.
+  window.addEventListener('pagehide', () => liberarEscenaWebGL(ctx));
+  window.addEventListener('pageshow', (ev) => { if (ev.persisted && ctx.liberada) location.reload(); });
+  return ctx;
+}
+
+// Libera geometrías, materiales, texturas, el entorno IBL y el renderer.
+export function liberarEscenaWebGL(ctx) {
+  if (!ctx || ctx.liberada) return;
+  ctx.liberada = true;
+  ctx.renderer.setAnimationLoop(null);
+  if (ctx.observador) ctx.observador.disconnect();
+  if (ctx.controles) ctx.controles.dispose();
+  const hechos = new Set();
+  const soltarTextura = (t) => { if (t && t.isTexture && !hechos.has(t)) { hechos.add(t); t.dispose(); } };
+  ctx.escena.traverse((o) => {
+    if (o.geometry && !hechos.has(o.geometry)) { hechos.add(o.geometry); o.geometry.dispose(); }
+    const mats = Array.isArray(o.material) ? o.material : o.material ? [o.material] : [];
+    mats.forEach((m) => {
+      if (hechos.has(m)) return;
+      hechos.add(m);
+      Object.values(m).forEach(soltarTextura);
+      m.dispose();
+    });
+  });
+  soltarTextura(ctx.escena.background);
+  if (ctx.envRT) ctx.envRT.dispose();
+  texturasPortada.clear(); imagenes.clear();
+  ctx.renderer.dispose();
+  if (ctx.etiquetas) ctx.etiquetas.domElement.remove();
+}
+
+// Ajusta la cámara de sombras de un foco al objeto que tiene que cubrir (mueble o escritorio):
+// el cono de la sombra se cierra justo sobre él (shadow.focus) y el plano cercano se acerca todo
+// lo posible. Así el mapa de 2048 px se aprovecha entero: sombras más nítidas, sin acné ni
+// "peter-panning". (El plano lejano lo fija three con light.distance; no lo tocamos para no cambiar la luz.)
+export function ajustarSombra(luz, objeto, { margen = 1.08, bias = -0.00012, normalBias = 0.01 } = {}) {
+  luz.updateMatrixWorld(); luz.target.updateMatrixWorld(); objeto.updateMatrixWorld(true);
+  const esfera = new THREE.Box3().setFromObject(objeto).getBoundingSphere(new THREE.Sphere());
+  const desde = luz.getWorldPosition(new THREE.Vector3());
+  const d = desde.distanceTo(esfera.center), r = esfera.radius * margen;
+  const sc = luz.shadow.camera;
+  sc.near = Math.max(0.05, d - r);
+  if (luz.isSpotLight) {
+    const eje = luz.target.getWorldPosition(new THREE.Vector3()).sub(desde).normalize();
+    const alCentro = esfera.center.clone().sub(desde).normalize();
+    const necesario = Math.acos(THREE.MathUtils.clamp(eje.dot(alCentro), -1, 1)) + Math.asin(Math.min(1, r / d));
+    luz.shadow.focus = THREE.MathUtils.clamp(necesario / luz.angle, 0.3, 1);
+  }
+  sc.updateProjectionMatrix();
+  luz.shadow.bias = bias; luz.shadow.normalBias = normalBias;
+  luz.shadow.needsUpdate = true;
 }
 
 // ---------------------------------------------------------------------------
@@ -297,8 +499,8 @@ function texturaPagina() {
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
   return t;
 }
-const matPagina = new THREE.MeshStandardMaterial({ map: texturaPagina(), roughness: 0.95 });
-const matHoja = new THREE.MeshStandardMaterial({ map: texturaPagina(), roughness: 0.92, side: THREE.DoubleSide });
+const matPagina = new THREE.MeshStandardMaterial({ map: texturaPagina(), roughness: 0.95, bumpMap: bumpPapel(), bumpScale: RELIEVE_PAPEL });
+const matHoja = new THREE.MeshStandardMaterial({ map: texturaPagina(), roughness: 0.92, side: THREE.DoubleSide, bumpMap: bumpPapel(), bumpScale: RELIEVE_PAPEL });
 const N_HOJAS = 16, SEG = 28;
 
 export function crearLibro(libro) {
@@ -308,7 +510,7 @@ export function crearLibro(libro) {
 
   const tela = new THREE.MeshPhysicalMaterial({ color: 0x6b5a48, roughness: 0.72, bumpMap: bumpTela(), bumpScale: 0.6, sheen: 0.4, sheenRoughness: 0.8 });
   const tapaFrente = new THREE.MeshPhysicalMaterial({ color: 0x6b5a48, roughness: 0.48, clearcoat: 0.25, clearcoatRoughness: 0.5 });
-  const guarda = new THREE.MeshStandardMaterial({ color: 0xd6cfbf, roughness: 0.95, envMapIntensity: 0.4 });
+  const guarda = new THREE.MeshStandardMaterial({ color: 0xd6cfbf, roughness: 0.95, envMapIntensity: 0.4, bumpMap: bumpPapel(), bumpScale: RELIEVE_PAPEL });
   const guardaTapa = new THREE.MeshStandardMaterial({ color: 0xece4d2, roughness: 0.9 });
   const P = grosor - TAPA * 2;              // grosor total de las hojas
   const largoHoja = fondo - VUELO, altoHoja = alto - VUELO * 2;
@@ -334,9 +536,11 @@ export function crearLibro(libro) {
   trasera.position.x = -grosor / 2 + TAPA / 2;
 
   // Hojas que vuelan: mallas flexibles que se curvan mientras pasan.
+  // Las normales se calculan a mano en curvarHoja; la esfera envolvente queda fija y generosa.
   const hojas = [];
   for (let i = 0; i < N_HOJAS; i++) {
     const geo = new THREE.PlaneGeometry(1, 1, SEG, 1);
+    geo.boundingSphere = new THREE.Sphere(new THREE.Vector3(), Math.max(alto, fondo) * 1.5);
     const m = new THREE.Mesh(geo, matHoja);
     m.visible = false; m.castShadow = true; m.frustumCulled = false;
     hojas.push(m);
@@ -350,6 +554,8 @@ export function crearLibro(libro) {
   [derecho, izquierdo, delantera, trasera, lomo].forEach((m) => { m.castShadow = true; m.receiveShadow = true; });
   grupo.add(derecho, izquierdo, bisagraTapa, trasera, lomo, ...hojas);
   grupo.userData.mats = { tela, tapaFrente, lomoMat, guarda };
+  // Colores "de verdad" de cada material: las vistas los atenúan multiplicando (filtro, prestados).
+  grupo.userData.tonos = { tela: tela.color.clone(), tapa: tapaFrente.color.clone(), lomo: new THREE.Color(0xffffff) };
   grupo.userData.piezas = [derecho, izquierdo, delantera, trasera, lomo];
   grupo.userData.partes = { bisagraTapa, trasera, derecho, izquierdo, hojas, P, largoHoja, altoHoja };
   abrirLibro(grupo, 0);
@@ -363,36 +569,38 @@ const suaveS = (t) => t * t * (3 - 2 * t);
 const conRebote = (t) => { const c = 1.25; return 1 + (c + 1) * Math.pow(t - 1, 3) + c * Math.pow(t - 1, 2); };
 
 // Dobla una hoja: ángulo en la bisagra "a" y punta rezagada (curvatura del papel).
+// La hoja se curva solo en el plano xz, así que la normal de cada columna sale directo de la
+// tangente: si la tangente es (sin θ, 0, −cos θ), la normal es (cos θ, 0, sin θ). Sin
+// computeVertexNormals(): todo se resuelve en la misma pasada por los vértices.
+const _angs = new Float32Array(SEG + 1);
 function curvarHoja(m, hx, z0, a, largo, alto) {
-  const pos = m.geometry.attributes.position;
+  const u = m.userData;
+  if (u.ult && Math.abs(u.ult[0] - hx) < 1e-7 && Math.abs(u.ult[1] - a) < 1e-6) return; // ya estaba así
+  u.ult = [hx, a];
+  const pos = m.geometry.attributes.position, nor = m.geometry.attributes.normal;
   const puntaRezago = Math.sin(a) * 0.95;            // la punta va detrás de la bisagra a mitad de vuelo
-  let x = hx, z = z0;
   const paso = largo / SEG;
-  const cols = [];
+  for (let j = 0; j < SEG; j++) _angs[j] = a - puntaRezago * Math.pow((j + 0.5) / SEG, 1.6);
+  let x = hx, z = z0;
   for (let j = 0; j <= SEG; j++) {
-    cols.push([x, z]);
-    const s = (j + 0.5) / SEG;
-    const ang = a - puntaRezago * Math.pow(s, 1.6);
-    x += Math.sin(ang) * paso; z -= Math.cos(ang) * paso;
+    // tangente en el vértice: promedio de los dos tramos que lo tocan
+    const th = j === 0 ? _angs[0] : j === SEG ? _angs[SEG - 1] : (_angs[j - 1] + _angs[j]) / 2;
+    const nx = Math.cos(th), nz = Math.sin(th);
+    // PlaneGeometry(1,1,SEG,1): fila 0 arriba (y=+0.5), fila 1 abajo; índice = fila*(SEG+1)+j.
+    pos.setXYZ(j, x, alto / 2, z); pos.setXYZ(SEG + 1 + j, x, -alto / 2, z);
+    nor.setXYZ(j, nx, 0, nz); nor.setXYZ(SEG + 1 + j, nx, 0, nz);
+    if (j < SEG) { x += Math.sin(_angs[j]) * paso; z -= Math.cos(_angs[j]) * paso; }
   }
-  // PlaneGeometry(1,1,SEG,1): fila 0 arriba (y=+0.5), fila 1 abajo.
-  for (let fila = 0; fila < 2; fila++) {
-    const y = fila === 0 ? alto / 2 : -alto / 2;
-    for (let j = 0; j <= SEG; j++) {
-      const k = fila * (SEG + 1) + j;
-      pos.setXYZ(k, cols[j][0], y, cols[j][1]);
-    }
-  }
-  pos.needsUpdate = true; m.geometry.computeVertexNormals(); m.geometry.computeBoundingSphere();
+  pos.needsUpdate = true; nor.needsUpdate = true;
 }
 
 // Abre el libro según k (0 = cerrado, 1 = abierto hasta la contratapa). Es reversible.
 export function abrirLibro(grupo, k) {
   const { grosor, fondo } = grupo.userData;
   const { bisagraTapa, derecho, izquierdo, hojas, P, largoHoja, altoHoja } = grupo.userData.partes;
-  // 1) la tapa
+  // 1) la tapa (con movimiento reducido, sin rebote)
   const kt = clamp01(k / 0.26);
-  bisagraTapa.rotation.y = -Math.PI * Math.min(1.0, conRebote(kt));
+  bisagraTapa.rotation.y = -Math.PI * Math.min(1.0, prefiereQuieto() ? suaveS(kt) : conRebote(kt));
   // 2) las hojas pasan de la derecha a la izquierda (más rápido en el medio, como hojeando)
   const kh = clamp01((k - 0.2) / 0.8);
   const f = suaveS(kh);                                // fracción de hojas ya pasadas
@@ -401,24 +609,35 @@ export function abrirLibro(grupo, k) {
   derecho.scale.x = tR; derecho.position.x = baseDer + tR / 2; derecho.visible = tR > 0.0002;
   izquierdo.scale.x = Math.max(0.00001, tL); izquierdo.position.set(baseIzq + tL / 2, 0, fondo / 2 + VUELO / 2 + largoHoja / 2);
   izquierdo.visible = tL > 0.0002 && kt > 0.6;
+  // Abanico: cada hoja vuela en su ventana de tiempo (desfase escalonado) y apoya un poquito más
+  // afuera que la anterior, repartiendo una fracción del grosor del lomo. Al salir, la primera va
+  // arriba del montón; al llegar, la última queda arriba. Así no se cruzan ni parpadean (z-fighting).
+  const capa = Math.min(0.00025, P / (N_HOJAS * 6));
   hojas.forEach((m, i) => {
     const a0 = i / N_HOJAS * 0.86, dur = 0.24;          // cada hoja vuela en su ventana
     const t = clamp01((kh - a0) / dur);
     m.visible = t > 0 && t < 1;
-    if (!m.visible) return;
+    if (!m.visible) { m.userData.ult = null; return; }
     const e = suaveS(t);
-    const hx = THREE.MathUtils.lerp(baseDer + tR, baseIzq + tL, e);
+    const separacion = 0.0002 + capa * THREE.MathUtils.lerp(N_HOJAS - 1 - i, i, e);
+    const hx = THREE.MathUtils.lerp(baseDer + tR, baseIzq + tL, e) + separacion;
     curvarHoja(m, hx, fondo / 2 - VUELO * 0.2, Math.PI * e, largoHoja, altoHoja);
   });
   grupo.userData.apertura = k;
 }
 
 // Dibuja el lomo: color de fondo, filetes dorados, título en vertical y autor.
-export function pintarLomo(grupo, fondo, tinta) {
+// La tinta se elige sola para que el título tenga contraste WCAG ≥ 4.5:1 con el fondo
+// (si hace falta, el fondo se aclara u oscurece un toque). "tinta" queda por compatibilidad.
+export function pintarLomo(grupo, fondoPedido, tinta) { // eslint-disable-line no-unused-vars
   const { libro, grosor, alto } = grupo.userData;
-  const escala = 4200; // píxeles por metro: lomos nítidos aunque te acerques
-  const W = Math.max(96, Math.round(grosor * escala)), H = Math.round(alto * escala);
-  const [c, g] = lienzo(W, H);
+  const { fondo, tinta: tintaOk } = tintaLegible(fondoPedido);
+  tinta = tintaOk;
+  // 3000 px por metro lógicos; en pantallas HiDPI el canvas se duplica (lienzoHD), así que de
+  // cerca se ve igual de nítido que antes y en pantallas normales gasta menos memoria.
+  const escala = 3000;
+  const W = Math.max(72, Math.round(grosor * escala)), H = Math.round(alto * escala);
+  const [c, g] = lienzoHD(W, H);
   g.fillStyle = fondo; g.fillRect(0, 0, W, H);
   ruido(g, W, H, 8);
   // filetes dorados arriba y abajo
@@ -427,11 +646,11 @@ export function pintarLomo(grupo, fondo, tinta) {
   const serif = "Georgia, 'Times New Roman', serif";
   const titulo = libro.titulo.toUpperCase();
   const autor = (libro.autores && libro.autores[0]) ? libro.autores[0].split(' ').slice(-1)[0].toUpperCase() : '';
-  const dosLineas = W > 150 && autor;
+  const dosLineas = W > 107 && autor;
   const largo = H * 0.74;                       // espacio para el título a lo largo del lomo
-  let tam = Math.min(W * (dosLineas ? 0.4 : 0.62), 90);
+  let tam = Math.min(W * (dosLineas ? 0.4 : 0.62), 64);
   g.font = `700 ${tam}px ${serif}`;
-  while (g.measureText(titulo).width > largo && tam > 14) { tam -= 1; g.font = `700 ${tam}px ${serif}`; }
+  while (g.measureText(titulo).width > largo && tam > 10) { tam -= 0.5; g.font = `700 ${tam}px ${serif}`; }
   g.save();
   g.translate(W / 2, H * 0.48); g.rotate(Math.PI / 2);
   g.textAlign = 'center'; g.textBaseline = 'middle';
@@ -440,71 +659,115 @@ export function pintarLomo(grupo, fondo, tinta) {
   const yTit = dosLineas ? -W * 0.12 : 0;
   g.strokeText(titulo, 0, yTit); g.fillStyle = tinta; g.fillText(titulo, 0, yTit);
   if (dosLineas) {
-    g.font = `400 ${Math.max(14, tam * 0.6)}px ${serif}`;
-    g.globalAlpha = 0.9; g.fillText(autor, 0, W * 0.24); g.globalAlpha = 1;
+    g.font = `400 ${Math.max(10, tam * 0.6)}px ${serif}`;
+    g.fillText(autor, 0, W * 0.24);   // sin transparencia: la transparencia bajaría el contraste
   }
   g.restore();
   // pequeño sello de la editorial abajo
   g.fillStyle = tinta; g.globalAlpha = 0.6;
-  g.beginPath(); g.arc(W / 2, H * 0.972, Math.min(W * 0.14, 12), 0, Math.PI * 2); g.fill(); g.globalAlpha = 1;
+  g.beginPath(); g.arc(W / 2, H * 0.972, Math.min(W * 0.14, 9), 0, Math.PI * 2); g.fill(); g.globalAlpha = 1;
 
-  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 16;
   const m = grupo.userData.mats.lomoMat;
   if (m.map) m.map.dispose();
-  m.map = t; m.needsUpdate = true;
+  m.map = texturaCanvas(c); m.needsUpdate = true;
   grupo.userData.mats.tela.color.set(fondo);
+  if (grupo.userData.tonos) grupo.userData.tonos.tela.set(fondo);
+  grupo.userData.tintaLomo = tinta;
 }
 
 // Carga la portada real, la pone en la tapa y saca el color del lomo de la propia portada.
-const cargador = new THREE.TextureLoader().setCrossOrigin('anonymous');
+// Si no hay portada, falla o tarda más de 6 s, se dibuja una tapa de tela con título y autor:
+// ningún libro queda con la tapa negra o vacía.
+const texturasPortada = new Map();  // url → Promise<Texture>; libros con la misma portada la comparten
 export async function vestirConPortada(grupo, renderer) {
   const id = await idPortada(grupo.userData.libro);
   if (!id) { grupo.userData.sinPortada = true; tapaGenerica(grupo); return null; }
-  return new Promise((ok) => {
-    cargador.load(urlPortada(id, 'L'), (tex) => {
-      // Open Library devuelve una imagen de 1x1 cuando no tiene portada.
-      if (tex.image.width < 10) { tapaGenerica(grupo); ok(null); return; }
-      tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
-      const m = grupo.userData.mats.tapaFrente; m.map = tex; m.color.set(0xffffff); m.needsUpdate = true;
-      const [fondo, tinta] = coloresDePortada(tex.image);
-      pintarLomo(grupo, fondo, tinta);
-      grupo.userData.portadaId = id;
-      ok(id);
-    }, undefined, () => { tapaGenerica(grupo); ok(null); });
-  });
+  const url = urlPortada(id, 'L');
+  if (!texturasPortada.has(url)) {
+    texturasPortada.set(url, cargarImagen(url).then((img) => {
+      const tex = new THREE.Texture(img);
+      tex.colorSpace = THREE.SRGBColorSpace;
+      tex.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
+      tex.needsUpdate = true;
+      return tex;
+    }));
+  }
+  try {
+    const tex = await texturasPortada.get(url);
+    const m = grupo.userData.mats.tapaFrente; m.map = tex; m.color.set(0xffffff); m.needsUpdate = true;
+    if (grupo.userData.tonos) grupo.userData.tonos.tapa.set(0xffffff);
+    pintarLomo(grupo, colorDePortada(tex.image));
+    grupo.userData.portadaId = id;
+    return id;
+  } catch (e) {
+    grupo.userData.sinPortada = true;
+    tapaGenerica(grupo);
+    return null;
+  }
 }
 
+// Tapa de tela hecha a mano: color estable por libro, doble filete dorado, ornamento,
+// título en versalitas y autor. El lomo usa el mismo color, con tinta de buen contraste.
+const TELAS = ['#5b2a2a', '#2f4a3a', '#283c5c', '#5a4126', '#3d2f4f', '#6b3d1f', '#24474a', '#4a4a2a'];
 function tapaGenerica(grupo) {
   const { libro } = grupo.userData;
-  const [c, g] = lienzo(600, 900);
-  g.fillStyle = '#5b4a3a'; g.fillRect(0, 0, 600, 900); ruido(g, 600, 900, 10);
-  g.strokeStyle = '#c9a85a'; g.lineWidth = 6; g.strokeRect(40, 40, 520, 820);
-  g.fillStyle = '#efe6d2'; g.textAlign = 'center';
-  g.font = '600 54px Georgia, serif';
-  const palabras = libro.titulo.split(' '); const lineas = []; let l = '';
-  palabras.forEach((p) => { const prueba = l ? l + ' ' + p : p; if (g.measureText(prueba).width > 460) { lineas.push(l); l = p; } else l = prueba; });
-  lineas.push(l);
-  lineas.forEach((t, i) => g.fillText(t, 300, 330 + i * 66));
-  g.font = '400 32px Georgia, serif'; g.fillText((libro.autores || []).join(', '), 300, 700);
-  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
-  const m = grupo.userData.mats.tapaFrente; m.map = t; m.color.set(0xffffff); m.needsUpdate = true;
+  const { fondo, tinta } = tintaLegible(TELAS[Math.abs(libro.id || 0) % TELAS.length], 7);
+  const W = 600, H = 900;
+  const [c, g] = lienzoHD(W, H, { maxLado: 1600 });
+  // tela con viñeta suave
+  g.fillStyle = fondo; g.fillRect(0, 0, W, H); ruido(g, W, H, 14);
+  const vi = g.createRadialGradient(W / 2, H * 0.45, H * 0.2, W / 2, H / 2, H * 0.75);
+  vi.addColorStop(0, 'rgba(255,255,255,0.06)'); vi.addColorStop(1, 'rgba(0,0,0,0.35)');
+  g.fillStyle = vi; g.fillRect(0, 0, W, H);
+  // doble filete dorado
+  g.strokeStyle = '#d4b066'; g.lineWidth = 5; g.strokeRect(34, 34, W - 68, H - 68);
+  g.lineWidth = 1.5; g.strokeRect(48, 48, W - 96, H - 96);
+  // ornamento: rombo con líneas
+  const orn = (y) => {
+    g.fillStyle = '#d4b066'; g.beginPath(); g.moveTo(W / 2, y - 9); g.lineTo(W / 2 + 9, y); g.lineTo(W / 2, y + 9); g.lineTo(W / 2 - 9, y); g.closePath(); g.fill();
+    g.fillRect(W / 2 - 120, y - 0.75, 100, 1.5); g.fillRect(W / 2 + 20, y - 0.75, 100, 1.5);
+  };
+  // título partido en líneas que entren
+  g.fillStyle = tinta; g.textAlign = 'center'; g.textBaseline = 'alphabetic';
+  let tam = 58;
+  const partir = () => {
+    g.font = `700 ${tam}px Georgia, 'Times New Roman', serif`;
+    const lineas = []; let l = '';
+    libro.titulo.toUpperCase().split(' ').forEach((p) => {
+      const prueba = l ? l + ' ' + p : p;
+      if (g.measureText(prueba).width > W - 150 && l) { lineas.push(l); l = p; } else l = prueba;
+    });
+    lineas.push(l);
+    return lineas;
+  };
+  let lineas = partir();
+  while ((lineas.length > 4 || lineas.some((x) => g.measureText(x).width > W - 130)) && tam > 30) { tam -= 2; lineas = partir(); }
+  const alto = tam * 1.18, y0 = H * 0.42 - ((lineas.length - 1) * alto) / 2;
+  orn(y0 - tam - 22);
+  lineas.forEach((t, i) => g.fillText(t, W / 2, y0 + i * alto));
+  orn(y0 + (lineas.length - 1) * alto + 40);
+  g.font = `italic 400 32px Georgia, 'Times New Roman', serif`;
+  g.fillText((libro.autores || []).join(', '), W / 2, H * 0.78, W - 140);
+  const m = grupo.userData.mats.tapaFrente;
+  if (m.map && !m.map.image?.src) m.map.dispose(); // la anterior era de canvas: se libera
+  m.map = texturaCanvas(c); m.color.set(0xffffff); m.needsUpdate = true;
+  if (grupo.userData.tonos) grupo.userData.tonos.tapa.set(0xffffff);
+  pintarLomo(grupo, fondo);
 }
 
-// Color medio de la franja izquierda de la portada (la que toca el lomo) y una tinta que contraste.
-function coloresDePortada(img) {
-  const [c, g] = lienzo(40, 60);
+// Color medio de la franja izquierda de la portada (la que toca el lomo), un poco más oscuro:
+// los lomos de tela suelen serlo. La tinta la elige pintarLomo según el contraste.
+function colorDePortada(img) {
+  const [, g] = lienzo(40, 60);
   g.drawImage(img, 0, 0, 40, 60);
   let r = 0, v = 0, a = 0, n = 0;
   try {
     const d = g.getImageData(0, 0, 8, 60).data;
     for (let i = 0; i < d.length; i += 4) { r += d[i]; v += d[i + 1]; a += d[i + 2]; n++; }
-  } catch (e) { return ['#5b4a3a', '#efe6d2']; }
+  } catch (e) { return '#5b4a3a'; }
   r /= n; v /= n; a /= n;
-  // un poco más oscuro y saturado: los lomos de tela suelen serlo
   const k = 0.82;
-  const fondo = `rgb(${Math.round(r * k)},${Math.round(v * k)},${Math.round(a * k)})`;
-  const lum = 0.2126 * r * k + 0.7152 * v * k + 0.0722 * a * k;
-  return [fondo, lum > 128 ? '#120e0a' : '#fbf6ea'];
+  return `rgb(${Math.round(r * k)},${Math.round(v * k)},${Math.round(a * k)})`;
 }
 
 // ---------------------------------------------------------------------------
@@ -564,7 +827,7 @@ export function montarEstanteria(ctx, libros, { anchoInterior = 0.66, altoHueco 
   }
   escena.add(mueble);
 
-  const laton = new T.MeshStandardMaterial({ color: 0xb08a4a, metalness: 0.9, roughness: 0.32 });
+  const laton = materialLaton();
   // Libros: los estantes de arriba primero, ligeras imperfecciones para que no parezcan de catálogo.
   const zFrente = fondoMueble / 2 - 0.012;
   const infoFilas = [];
@@ -600,10 +863,16 @@ export function montarEstanteria(ctx, libros, { anchoInterior = 0.66, altoHueco 
 // Interpolación suave para las animaciones.
 export const suave = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
 
-export const prefiereQuieto = () => window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
-
+// three r170 solo funciona con WebGL2 (el soporte de WebGL1 se quitó en r163).
 export function webglDisponible() {
-  try { const c = document.createElement('canvas'); return !!(c.getContext('webgl2') || c.getContext('webgl')); } catch (e) { return false; }
+  try { const c = document.createElement('canvas'); return !!c.getContext('webgl2'); } catch (e) { return false; }
+}
+
+// Aviso accesible cuando no hay 3D: lo anuncia el lector de pantalla y lleva a la vista tradicional.
+export function avisoSin3D(el, texto) {
+  el.hidden = false;
+  el.setAttribute('role', 'alert');
+  el.innerHTML = `${texto} <a href="/vista/tradicional">Ir a la vista tradicional</a>`;
 }
 
 // ---------------------------------------------------------------------------
@@ -611,13 +880,16 @@ export function webglDisponible() {
 // ---------------------------------------------------------------------------
 export function crearPlaca(nombre, ancho = 0.17, alto = 0.03) {
   const W = 1400, H = Math.round(W * alto / ancho);
-  const [c, g] = lienzo(W, H);      // color
-  const [cb, gb] = lienzo(W, H);    // relieve (blanco = alto, negro = hundido)
-  // Latón cepillado: degradado cálido y rayitas horizontales.
+  const [c, g] = lienzoHD(W, H);      // color
+  const [cb, gb] = lienzoHD(W, H);    // relieve (blanco = alto, negro = hundido)
+  const [cr, gr] = lienzoHD(W, H);    // rugosidad: el cepillado estira el reflejo a lo largo
+  // Latón cepillado: degradado cálido y miles de rayitas horizontales de largo variable.
   const grad = g.createLinearGradient(0, 0, 0, H);
   grad.addColorStop(0, '#f1d58f'); grad.addColorStop(0.45, '#c9a14e'); grad.addColorStop(1, '#9c7531');
   g.fillStyle = grad; g.fillRect(0, 0, W, H);
-  for (let y = 0; y < H; y++) { g.fillStyle = `rgba(${Math.random() < 0.5 ? '255,240,200' : '80,55,15'},${Math.random() * 0.08})`; g.fillRect(0, y, W, 1); }
+  cepillado(g, W, H, '255,240,200', '80,55,15');
+  gr.fillStyle = '#d6d6d6'; gr.fillRect(0, 0, W, H);
+  cepillado(gr, W, H, '255,255,255', '110,110,110');
   gb.fillStyle = '#fff'; gb.fillRect(0, 0, W, H);
   // Filete grabado alrededor.
   const m = H * 0.14;
@@ -626,6 +898,8 @@ export function crearPlaca(nombre, ancho = 0.17, alto = 0.03) {
     g.save(); g.translate(2, 2); g.strokeStyle = g.fillStyle = 'rgba(255,245,210,0.55)'; dibujar(g); g.restore();
     g.save(); g.strokeStyle = g.fillStyle = '#5a3d10'; dibujar(g); g.restore();
     gb.save(); gb.strokeStyle = gb.fillStyle = '#000'; dibujar(gb); gb.restore();
+    // dentro del grabado el metal queda mate (más rugoso)
+    gr.save(); gr.strokeStyle = gr.fillStyle = '#ffffff'; dibujar(gr); gr.restore();
   };
   grabar((x) => { x.lineWidth = 5; x.strokeRect(m, m, W - m * 2, H - m * 2); });
   // Texto en versalitas, con espaciado de imprenta.
@@ -644,9 +918,12 @@ export function crearPlaca(nombre, ancho = 0.17, alto = 0.03) {
     g.strokeStyle = '#4a320c'; g.lineWidth = 4; g.beginPath(); g.moveTo(cx - r * 0.7, H / 2 - r * 0.3); g.lineTo(cx + r * 0.7, H / 2 + r * 0.3); g.stroke();
     gb.fillStyle = '#000'; gb.beginPath(); gb.arc(cx, H / 2, r * 1.05, 0, Math.PI * 2); gb.stroke();
   });
-  const mapa = new THREE.CanvasTexture(c); mapa.colorSpace = THREE.SRGBColorSpace; mapa.anisotropy = 16;
-  const relieve = new THREE.CanvasTexture(cb);
-  const mat = new THREE.MeshStandardMaterial({ map: mapa, bumpMap: relieve, bumpScale: 1.2, metalness: 0.75, roughness: 0.32 });
+  const mapa = texturaCanvas(c);
+  const relieve = texturaCanvas(cb, null, { color: false });
+  const rugosidad = texturaCanvas(cr, null, { color: false });
+  const mat = new THREE.MeshStandardMaterial({
+    map: mapa, bumpMap: relieve, bumpScale: 1.2, roughnessMap: rugosidad, metalness: 0.85, roughness: 0.32,
+  });
   const placa = new THREE.Mesh(new RoundedBoxGeometry(ancho, alto, 0.0035, 3, 0.0012), mat);
   placa.castShadow = true;
   placa.userData.placa = nombre;
