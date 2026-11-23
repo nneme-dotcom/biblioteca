@@ -11,4 +11,7 @@ public interface PrestamoRepository extends JpaRepository<Prestamo, Long> {
 
     // "Mis préstamos": los de un usuario, del más nuevo al más viejo.
     List<Prestamo> findByUsuarioOrderByFechaPrestamoDesc(Usuario usuario);
+
+    // Los préstamos que todavía no se devolvieron (para saber dónde está cada libro).
+    List<Prestamo> findByDevueltoFalse();
 }

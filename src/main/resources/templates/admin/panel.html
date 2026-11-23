@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8">
+  <link rel="icon" href="data:,">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Panel de préstamos</title>
+  <link rel="stylesheet" th:href="@{/css/estilos.css}">
+  <link rel="stylesheet" th:href="@{/css/estanteria.css}">
+  <script type="importmap">
+    { "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/" } }
+  </script>
+</head>
+<body class="pagina3d">
+<!-- Solo administración. Dónde está cada libro y cuánto le queda a cada préstamo. -->
+<nav th:replace="~{fragments/menu :: menu}"></nav>
+<div class="panel3d">
+  <main class="sala3d">
+    <div id="escena" class="escena3d" role="img" aria-label="Estantería 3D: los libros prestados flotan delante con un anillo de tiempo"></div>
+    <div class="hud">
+      <h1>¿Dónde está cada libro?</h1>
+      <p>Los libros prestados salen de su hueco y flotan delante. El anillo marca lo que queda de préstamo.</p>
+      <div class="leyenda">
+        <span><i style="background:#2bd99a"></i>En plazo</span>
+        <span><i style="background:#ffb020"></i>Vence en ≤ 3 días</span>
+        <span><i style="background:#ff3b3b"></i>Vencido</span>
+      </div>
+    </div>
+    <div id="cargando" class="cargando">Cargando el panel…</div>
+  </main>
+  <aside class="panel-lado">
+    <h1>Resumen</h1>
+    <div class="kpis">
+      <div class="kpi"><b id="k-total">–</b><span>libros en total</span></div>
+      <div class="kpi ok"><b id="k-estante">–</b><span>en la estantería</span></div>
+      <div class="kpi"><b id="k-prestados">–</b><span>prestados</span></div>
+      <div class="kpi vencido"><b id="k-vencidos">–</b><span>vencidos</span></div>
+      <div class="kpi pronto"><b id="k-pronto">–</b><span>vencen en ≤ 3 días</span></div>
+    </div>
+    <h2>Préstamos activos</h2>
+    <p>Pasá el ratón por un préstamo para encontrarlo en la escena. <a th:href="@{/admin/prestamos}">Gestionar devoluciones</a></p>
+    <ul id="lista-prestamos"></ul>
+  </aside>
+</div>
+<div id="tooltip" class="tip" hidden></div>
+<script type="module" th:src="@{/js/panel.js}"></script>
+</body>
+</html>

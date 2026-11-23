@@ -18,7 +18,7 @@
   <div sec:authorize="hasRole('USER')">
     <p>Hola, <strong sec:authentication="name"></strong>. ¿Qué querés leer hoy?</p>
     <ul>
-      <li><a th:href="@{/libros}">Ver el catálogo y pedir un libro</a></li>
+      <li><a th:href="@{/libros}">Recorrer la estantería y pedir un libro</a></li>
       <li><a th:href="@{/user/prestamos}">Mis préstamos</a></li>
       <li><a th:href="@{/user/favoritos}">Mis favoritos</a></li>
     </ul>
@@ -27,6 +27,7 @@
   <div sec:authorize="hasRole('ADMIN')">
     <p>Panel de administración.</p>
     <ul>
+      <li><a th:href="@{/admin/panel}">Panel 3D: dónde está cada libro y préstamos vencidos</a></li>
       <li><a th:href="@{/admin/libros}">Gestión de libros (alta, edición y baja)</a></li>
       <li><a th:href="@{/admin/usuarios}">Usuarios y roles</a></li>
       <li><a th:href="@{/admin/prestamos}">Préstamos y devoluciones</a></li>

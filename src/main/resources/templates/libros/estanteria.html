@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8">
+  <link rel="icon" href="data:,">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Catálogo · Estantería</title>
+  <!-- Token CSRF para las acciones que se hacen sin recargar (favoritos). -->
+  <meta name="_csrf" th:content="${_csrf.token}">
+  <meta name="_csrf_header" th:content="${_csrf.headerName}">
+  <link rel="stylesheet" th:href="@{/css/estilos.css}">
+  <link rel="stylesheet" th:href="@{/css/estanteria.css}">
+  <!-- three.js desde su CDN oficial (versión fija). -->
+  <script type="importmap">
+    { "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/" } }
+  </script>
+</head>
+<body class="pagina3d">
+<!-- Catálogo del socio: una estantería de nogal con los libros de verdad (portadas de Open Library). -->
+<nav th:replace="~{fragments/menu :: menu}"></nav>
+<main class="sala3d">
+  <div id="escena" class="escena3d" role="img" aria-label="Estantería 3D con los libros del catálogo"></div>
+
+  <div class="hud">
+    <h1>Catálogo</h1>
+    <p id="contador">Cargando libros…</p>
+    <p>Pasá el ratón por los lomos y hacé clic en un libro para verlo. Arrastrá para girar, rueda para acercar.</p>
+    <div class="leyenda">
+      <span><i style="background:#9e1b22"></i>Cinta roja: favorito</span>
+      <span><i style="background:#f3ecd9"></i>Etiqueta: prestado</span>
+    </div>
+    <p><a th:href="@{/libros(vista='tabla')}">Ver el catálogo como lista</a></p>
+  </div>
+
+  <div id="cargando" class="cargando">Montando la estantería…</div>
+
+  <aside id="ficha" class="ficha" hidden aria-live="polite">
+    <button id="cerrar-ficha" class="cerrar" type="button" aria-label="Volver a la estantería">✕</button>
+    <img id="ficha-portada" alt="">
+    <h2 id="ficha-titulo"></h2>
+    <p id="ficha-autores" class="autores"></p>
+    <span id="ficha-estado" class="estado"></span>
+    <dl>
+      <dt>Año</dt><dd id="ficha-anio"></dd>
+      <dt>ISBN</dt><dd id="ficha-isbn"></dd>
+    </dl>
+    <div class="acciones">
+      <form id="form-pedir" method="post" th:action="@{/user/prestamos/solicitar/0}">
+        <button class="btn" type="submit">Pedir prestado (14 días)</button>
+      </form>
+      <button id="btn-favorito" class="btn-sec" type="button"></button>
+      <a th:href="@{/user/prestamos}">Ver mis préstamos</a>
+    </div>
+  </aside>
+  <div id="tooltip" class="tip" hidden></div>
+  <noscript><div class="cargando">La estantería necesita JavaScript. <a href="/libros?vista=tabla">Ver como lista</a></div></noscript>
+</main>
+<script type="module" th:src="@{/js/estanteria.js}"></script>
+</body>
+</html>

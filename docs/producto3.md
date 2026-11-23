@@ -34,6 +34,13 @@ Se pueden cambiar con las variables `APP_ADMIN_EMAIL`, `APP_ADMIN_PASSWORD` y `A
 - `static/css/estilos.css`: estilos comunes (antes repetidos en cada vista)
 - Docker: volumen para no perder datos, variables de las cuentas iniciales, `restart: unless-stopped`
 
+## Vistas 3D (three.js)
+- **Socio · `/libros`**: el catálogo es una estantería de nogal en 3D con los libros reales (portadas de Open Library). Al pasar el ratón el libro asoma; al hacer clic viene a la mano y se abre la ficha (pedir prestado, favorito). Los favoritos llevan una cinta roja y los prestados una etiqueta con la fecha de vuelta. `/libros?vista=tabla` muestra la lista de siempre.
+- **Admin · `/admin/panel`**: los libros prestados salen de su hueco y flotan delante con un anillo que marca lo que queda de préstamo (verde en plazo, ámbar ≤ 3 días, rojo vencido) y un hilo de luz hasta su hueco. A la derecha, resumen y lista de préstamos enlazada con la escena.
+- Datos en JSON: `/libros/datos` (socio, sin datos de otros socios) y `/admin/panel/datos` (solo ADMIN).
+- Necesita internet: three.js se carga desde jsDelivr y las portadas desde Open Library. Si el navegador no tiene WebGL se ofrece la lista.
+- Código: `static/js/biblioteca3d.js` (sala, madera, libros, portadas), `estanteria.js`, `panel.js`, `static/css/estanteria.css`, `controller/VistaLibros.java`, `PanelController.java`, `dto/`.
+
 ## Guion sugerido para el vídeo
 1. Sin sesión: portada → intentar `/admin/libros` → redirige a login.
 2. Registro: error de contraseñas distintas → registro correcto → login.
