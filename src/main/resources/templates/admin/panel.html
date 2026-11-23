@@ -13,10 +13,10 @@
         "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/" } }
   </script>
 </head>
-<!-- Vista cinematográfica del admin: panel de control 3D de préstamos, sin menú. -->
-<body class="pagina3d cine panel-control">
+<!-- Vista cinematográfica del admin: escritorio 3D con las pilas de libros prestados, sin menú. -->
+<body class="pagina3d cine">
 <main class="sala3d">
-  <div id="escena" class="escena3d" role="img" aria-label="Panel 3D: línea de tiempo de los préstamos activos"></div>
+  <div id="escena" class="escena3d" role="img" aria-label="Escritorio 3D con las pilas de libros prestados: vencidos, por vencer y en plazo"></div>
 
   <div class="kpis-cine">
     <h1>Préstamos activos</h1>
@@ -31,7 +31,7 @@
     <a class="boton-cine" th:href="@{/vista/tradicional}">Vista tradicional</a>
     <form th:action="@{/logout}" method="post"><button class="boton-cine" type="submit">Salir</button></form>
   </div>
-  <p id="ayuda" class="ayuda">Clic en un préstamo para ver los datos del socio · arrastrá para girar · rueda para acercar</p>
+  <p id="ayuda" class="ayuda">Pasá el ratón por un libro para levantarlo · clic para ver quién lo tiene · arrastrá para girar la vista</p>
   <div id="cargando" class="cargando">Cargando el panel…</div>
   <div id="tooltip" class="tip" hidden></div>
 </main>

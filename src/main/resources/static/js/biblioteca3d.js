@@ -279,12 +279,14 @@ export function medidasLibro(id) {
   return { grosor: 0.022 + r() * 0.03, alto: 0.19 + r() * 0.055, fondo: 0.125 + r() * 0.03 };
 }
 
-// Para poder abrirlo, la tapa delantera y el bloque de hojas cuelgan de "bisagras" en el lomo.
-// La última página: renglones de texto tenue y número de página, como un libro de verdad.
+// Para poder abrirlo, la tapa delantera cuelga de una bisagra en el lomo y las hojas están en dos
+// montones (el de la derecha, sin leer, y el de la izquierda, ya pasado). Al abrir, las hojas
+// vuelan de un montón al otro curvándose como papel, hasta dejar a la vista la contratapa.
+// Página con renglones de texto tenue, como un libro de verdad (la última dice FIN).
 function texturaPagina() {
   const [c, g] = lienzo(512, 800);
   g.fillStyle = '#f4ecd8'; g.fillRect(0, 0, 512, 800);
-  g.fillStyle = 'rgba(40,30,20,0.28)';
+  g.fillStyle = 'rgba(40,30,20,0.26)';
   for (let y = 70; y < 560; y += 18) {
     const ancho = y > 540 ? 180 : 400 - (Math.random() < 0.12 ? 120 : 0);
     g.fillRect(56, y, ancho, 7);
@@ -296,6 +298,9 @@ function texturaPagina() {
   return t;
 }
 const matPagina = new THREE.MeshStandardMaterial({ map: texturaPagina(), roughness: 0.95 });
+const matHoja = new THREE.MeshStandardMaterial({ map: texturaPagina(), roughness: 0.92, side: THREE.DoubleSide });
+const N_HOJAS = 16, SEG = 28;
+
 export function crearLibro(libro) {
   const { grosor, alto, fondo } = medidasLibro(libro.id);
   const grupo = new THREE.Group();
@@ -303,19 +308,20 @@ export function crearLibro(libro) {
 
   const tela = new THREE.MeshPhysicalMaterial({ color: 0x6b5a48, roughness: 0.72, bumpMap: bumpTela(), bumpScale: 0.6, sheen: 0.4, sheenRoughness: 0.8 });
   const tapaFrente = new THREE.MeshPhysicalMaterial({ color: 0x6b5a48, roughness: 0.48, clearcoat: 0.25, clearcoatRoughness: 0.5 });
-  const guarda = new THREE.MeshStandardMaterial({ color: 0xe9dcc0, roughness: 0.9 }); // cara interior de la contratapa
-  const guardaTapa = new THREE.MeshStandardMaterial({ color: 0xe9dcc0, roughness: 0.9 });
+  const guarda = new THREE.MeshStandardMaterial({ color: 0xd6cfbf, roughness: 0.95, envMapIntensity: 0.4 });
+  const guardaTapa = new THREE.MeshStandardMaterial({ color: 0xece4d2, roughness: 0.9 });
+  const P = grosor - TAPA * 2;              // grosor total de las hojas
+  const largoHoja = fondo - VUELO, altoHoja = alto - VUELO * 2;
 
-  // Bloque de hojas: cuelga de una bisagra en el lomo, del lado de la tapa delantera.
-  const hojas = new THREE.Mesh(
-    new THREE.BoxGeometry(grosor - TAPA * 2, alto - VUELO * 2, fondo - VUELO),
-    [matPagina, matPagina, matPapelH, matPapelH, tela, matPapelV]);
-  const bisagraHojas = new THREE.Group();
-  bisagraHojas.position.set(grosor / 2 + TAPA, 0, fondo / 2);
-  hojas.position.set(-(grosor / 2 + TAPA), 0, -VUELO / 2 - fondo / 2);
-  bisagraHojas.add(hojas);
+  // Montón derecho (hojas sin pasar): apoyado sobre la contratapa.
+  const geoMonton = new THREE.BoxGeometry(1, altoHoja, largoHoja);
+  const derecho = new THREE.Mesh(geoMonton, [matPagina, matPagina, matPapelH, matPapelH, tela, matPapelV]);
+  derecho.position.z = -VUELO / 2;
+  // Montón izquierdo (hojas ya pasadas): crece encima de la tapa abierta.
+  const izquierdo = new THREE.Mesh(geoMonton, [matPagina, matPagina, matPapelH, matPapelH, matPapelV, tela]);
+  izquierdo.visible = false;
 
-  // Tapa delantera (portada en su cara +x, guarda en la -x) con su propia bisagra.
+  // Tapa delantera (portada en su cara +x, guarda en la -x) con su bisagra.
   const geoTapa = new THREE.BoxGeometry(TAPA, alto, fondo);
   const delantera = new THREE.Mesh(geoTapa, [tapaFrente, guardaTapa, tela, tela, tela, tela]);
   const bisagraTapa = new THREE.Group();
@@ -323,19 +329,17 @@ export function crearLibro(libro) {
   delantera.position.set(-TAPA / 2, 0, -fondo / 2);
   bisagraTapa.add(delantera);
 
-  // Contratapa: su cara interior (+x) es donde va pegado el bolsillo con la ficha de préstamo.
+  // Contratapa: en su cara interior (+x) va pegado el bolsillo con la ficha de préstamo.
   const trasera = new THREE.Mesh(geoTapa, [guarda, tela, tela, tela, tela, tela]);
   trasera.position.x = -grosor / 2 + TAPA / 2;
 
-  // Últimas hojas sueltas: se ven pasar una a una al abrir el libro hasta el final.
-  const sueltas = [];
-  for (let i = 0; i < 4; i++) {
-    const hoja = new THREE.Mesh(new THREE.BoxGeometry(0.0004, alto - VUELO * 2.4, fondo - VUELO * 1.5), matPagina);
-    const b = new THREE.Group();
-    b.position.set(-grosor / 2 + TAPA + 0.0006 * (i + 1), 0, fondo / 2);
-    hoja.position.set(0, 0, -(fondo - VUELO * 1.5) / 2 - VUELO / 2);
-    b.add(hoja); b.visible = false;
-    sueltas.push(b);
+  // Hojas que vuelan: mallas flexibles que se curvan mientras pasan.
+  const hojas = [];
+  for (let i = 0; i < N_HOJAS; i++) {
+    const geo = new THREE.PlaneGeometry(1, 1, SEG, 1);
+    const m = new THREE.Mesh(geo, matHoja);
+    m.visible = false; m.castShadow = true; m.frustumCulled = false;
+    hojas.push(m);
   }
 
   // Lomo con la etiqueta del título.
@@ -343,36 +347,68 @@ export function crearLibro(libro) {
   const lomo = new THREE.Mesh(new THREE.BoxGeometry(grosor, alto, TAPA * 1.2), [tela, tela, tela, tela, lomoMat, tela]);
   lomo.position.z = fondo / 2 - TAPA * 0.6;
 
-  [hojas, delantera, trasera, lomo].forEach((m) => { m.castShadow = true; m.receiveShadow = true; });
-  grupo.add(bisagraHojas, bisagraTapa, trasera, lomo, ...sueltas);
+  [derecho, izquierdo, delantera, trasera, lomo].forEach((m) => { m.castShadow = true; m.receiveShadow = true; });
+  grupo.add(derecho, izquierdo, bisagraTapa, trasera, lomo, ...hojas);
   grupo.userData.mats = { tela, tapaFrente, lomoMat, guarda };
-  grupo.userData.piezas = [hojas, delantera, trasera, lomo];
-  grupo.userData.partes = { bisagraHojas, bisagraTapa, trasera, sueltas, hojas, delantera };
-  grupo.userData.apertura = 0;
-
+  grupo.userData.piezas = [derecho, izquierdo, delantera, trasera, lomo];
+  grupo.userData.partes = { bisagraTapa, trasera, derecho, izquierdo, hojas, P, largoHoja, altoHoja };
+  abrirLibro(grupo, 0);
   pintarLomo(grupo, '#5b4a3a', '#efe6d2');
   return grupo;
 }
 
-// Abre el libro según k (0 = cerrado, 1 = abierto hasta la contratapa).
-// Primero gira la tapa con casi todo el bloque, después pasan las últimas hojas.
+const clamp01 = (t) => Math.min(1, Math.max(0, t));
+const suaveS = (t) => t * t * (3 - 2 * t);
+// La tapa se abre con un pequeño rebote al apoyarse, como un cartón de verdad.
+const conRebote = (t) => { const c = 1.25; return 1 + (c + 1) * Math.pow(t - 1, 3) + c * Math.pow(t - 1, 2); };
+
+// Dobla una hoja: ángulo en la bisagra "a" y punta rezagada (curvatura del papel).
+function curvarHoja(m, hx, z0, a, largo, alto) {
+  const pos = m.geometry.attributes.position;
+  const puntaRezago = Math.sin(a) * 0.95;            // la punta va detrás de la bisagra a mitad de vuelo
+  let x = hx, z = z0;
+  const paso = largo / SEG;
+  const cols = [];
+  for (let j = 0; j <= SEG; j++) {
+    cols.push([x, z]);
+    const s = (j + 0.5) / SEG;
+    const ang = a - puntaRezago * Math.pow(s, 1.6);
+    x += Math.sin(ang) * paso; z -= Math.cos(ang) * paso;
+  }
+  // PlaneGeometry(1,1,SEG,1): fila 0 arriba (y=+0.5), fila 1 abajo.
+  for (let fila = 0; fila < 2; fila++) {
+    const y = fila === 0 ? alto / 2 : -alto / 2;
+    for (let j = 0; j <= SEG; j++) {
+      const k = fila * (SEG + 1) + j;
+      pos.setXYZ(k, cols[j][0], y, cols[j][1]);
+    }
+  }
+  pos.needsUpdate = true; m.geometry.computeVertexNormals(); m.geometry.computeBoundingSphere();
+}
+
+// Abre el libro según k (0 = cerrado, 1 = abierto hasta la contratapa). Es reversible.
 export function abrirLibro(grupo, k) {
-  const { bisagraHojas, bisagraTapa, sueltas } = grupo.userData.partes;
-  const { grosor } = grupo.userData;
-  const tramo = (a, b) => Math.min(1, Math.max(0, (k - a) / (b - a)));
-  const curva = (t) => t * t * (3 - 2 * t);
-  bisagraTapa.rotation.y = -Math.PI * curva(tramo(0, 0.5));
-  bisagraHojas.rotation.y = -Math.PI * curva(tramo(0.08, 0.62));
-  sueltas.forEach((b, i) => {
-    const t = curva(tramo(0.55 + i * 0.09, 0.78 + i * 0.09));
-    b.visible = k > 0.5;
-    b.rotation.y = -Math.PI * t;
-    // al pasar, la hoja se apoya encima del montón de la izquierda
-    const xIni = -grosor / 2 + TAPA + 0.0006 * (i + 1);
-    const xFin = grosor * 1.5 + TAPA + 0.0006 * (i + 1);
-    b.position.x = xIni + (xFin - xIni) * t;
-    // un poco de curvatura en el aire
-    b.children[0].rotation.y = Math.sin(t * Math.PI) * 0.25;
+  const { grosor, fondo } = grupo.userData;
+  const { bisagraTapa, derecho, izquierdo, hojas, P, largoHoja, altoHoja } = grupo.userData.partes;
+  // 1) la tapa
+  const kt = clamp01(k / 0.26);
+  bisagraTapa.rotation.y = -Math.PI * Math.min(1.0, conRebote(kt));
+  // 2) las hojas pasan de la derecha a la izquierda (más rápido en el medio, como hojeando)
+  const kh = clamp01((k - 0.2) / 0.8);
+  const f = suaveS(kh);                                // fracción de hojas ya pasadas
+  const baseDer = -grosor / 2 + TAPA, baseIzq = grosor / 2 + TAPA;
+  const tR = Math.max(0.00001, P * (1 - f)), tL = P * f;
+  derecho.scale.x = tR; derecho.position.x = baseDer + tR / 2; derecho.visible = tR > 0.0002;
+  izquierdo.scale.x = Math.max(0.00001, tL); izquierdo.position.set(baseIzq + tL / 2, 0, fondo / 2 + VUELO / 2 + largoHoja / 2);
+  izquierdo.visible = tL > 0.0002 && kt > 0.6;
+  hojas.forEach((m, i) => {
+    const a0 = i / N_HOJAS * 0.86, dur = 0.24;          // cada hoja vuela en su ventana
+    const t = clamp01((kh - a0) / dur);
+    m.visible = t > 0 && t < 1;
+    if (!m.visible) return;
+    const e = suaveS(t);
+    const hx = THREE.MathUtils.lerp(baseDer + tR, baseIzq + tL, e);
+    curvarHoja(m, hx, fondo / 2 - VUELO * 0.2, Math.PI * e, largoHoja, altoHoja);
   });
   grupo.userData.apertura = k;
 }

@@ -195,9 +195,9 @@ async function iniciar() {
       g.position.lerpVectors(p1, lector, e);
       g.position.z += Math.sin(e * Math.PI) * 0.08;
       g.quaternion.slerpQuaternions(q0, qLector, e);
-      lectura.intensity = 0.45 * e;
+      lectura.intensity = 0.25 * e;
     });
-    await animar(1800, (k) => abrirLibro(g, k));
+    await animar(3200, (k) => abrirLibro(g, k));
     ayuda.textContent = AYUDA_LIBRO;
     ocupado = false;
   }
@@ -206,7 +206,7 @@ async function iniciar() {
     const g = abierto; if (!g) return;
     ocupado = true;
     ayuda.textContent = AYUDA_GENERAL;
-    await animar(1000, (k) => abrirLibro(g, 1 - k));
+    await animar(1600, (k) => abrirLibro(g, 1 - k));
     volarA(vueltaCamara.pos, vueltaCamara.mira, 1100);
     const p0 = g.position.clone(), q0 = g.quaternion.clone();
     const casa = g.userData.casa;
@@ -216,7 +216,7 @@ async function iniciar() {
       g.position.lerpVectors(p0, casa.pos, e);
       g.position.z += Math.sin(e * Math.PI) * 0.1;
       g.quaternion.slerpQuaternions(q0, qCasa, e);
-      lectura.intensity = 0.45 * (1 - e);
+      lectura.intensity = 0.25 * (1 - e);
     });
     g.userData.enMano = false; abierto = null; ocupado = false; controles.enabled = true;
     estadoEnEstante(g);
@@ -233,7 +233,7 @@ async function iniciar() {
     l.disponible = false;
     l.prestamo = { fechaPrestamo: d.fechaPrestamo, fechaDevolucion: d.fechaDevolucion, diasRestantes: d.diasRestantes, vencido: false, propio: true };
     // El sello baja sobre la ficha y deja la tinta.
-    await animar(650, (k) => dibujarContratapa(g, { sello: k }));
+    await animar(700, (k) => dibujarContratapa(g, { sello: k }));
     dibujarContratapa(g, { sello: 1 });
     aviso(`Préstamo registrado. Devolvé «${l.titulo}» antes del ${fechaLarga(d.fechaDevolucion)}.`);
     ocupado = false;
@@ -313,127 +313,111 @@ function estadoEnEstante(g) {
 // Se dibuja en un canvas que se pega como textura. Las "zonas" son los botones de la ficha.
 // ---------------------------------------------------------------------------------
 const MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+// Ficha clásica y sobria: cartulina marfil, tinta negra de máquina de escribir, renglones finos.
+// Al sellar, la fecha de devolución se estampa en tinta roja en el primer renglón libre.
 function dibujarContratapa(g, { sello = 0 } = {}) {
   const l = g.userData.libro;
   const { fondo, alto } = g.userData;
   const W = 1000, H = Math.round(W * (alto / fondo));
   const c = document.createElement('canvas'); c.width = W; c.height = H;
   const x = c.getContext('2d');
-  // Guarda: papel jaspeado muy suave.
-  x.fillStyle = '#ece1c6'; x.fillRect(0, 0, W, H);
-  for (let i = 0; i < 180; i++) {
-    x.fillStyle = `rgba(${120 + Math.random() * 60},${90 + Math.random() * 40},${60 + Math.random() * 30},0.06)`;
-    x.beginPath(); x.ellipse(Math.random() * W, Math.random() * H, 20 + Math.random() * 70, 8 + Math.random() * 30, Math.random() * 3, 0, Math.PI * 2); x.fill();
-  }
-
-  // Ficha (cartulina crema con renglones azules), asomando del bolsillo.
-  const fx = W * 0.07, fy = H * 0.04, fw = W * 0.86, fh = H * 0.74;
-  x.save(); x.translate(fx + fw / 2, fy + fh / 2); x.rotate(-0.012); x.translate(-(fx + fw / 2), -(fy + fh / 2));
-  x.shadowColor = 'rgba(0,0,0,.35)'; x.shadowBlur = 18; x.shadowOffsetY = 6;
-  x.fillStyle = '#f7f0dc'; x.fillRect(fx, fy, fw, fh);
-  x.shadowColor = 'transparent';
-  x.fillStyle = '#b3262c'; x.fillRect(fx, fy, fw, 12);
   const mono = "'Courier New', Courier, monospace", serif = "Georgia, 'Times New Roman', serif";
-  const izq = fx + 34, der = fx + fw - 34;
-  let yy = fy + 64;
-  x.fillStyle = '#7a1d21'; x.font = `700 32px ${serif}`; x.textAlign = 'left';
-  x.fillText('BIBLIOTECA FP065', izq, yy);
-  x.textAlign = 'right'; x.fillText('Nº ' + String(l.id).padStart(5, '0'), der - 70, yy);
-  x.textAlign = 'left';
-  yy += 52;
-  x.fillStyle = '#1d1a16'; x.font = `700 52px ${serif}`; x.fillText('FICHA DE PRÉSTAMO', izq, yy);
-  x.fillRect(izq, yy + 12, der - izq, 3);
-  yy += 78;
+  const tinta = '#0e0d0c', gris = '#3d3830', linea = 'rgba(20,18,16,.42)', rojo = '#9a1b22';
+
+  // Guarda de papel liso.
+  x.fillStyle = '#efe8d8'; x.fillRect(0, 0, W, H);
+
+  // Ficha.
+  const fx = W * 0.09, fy = H * 0.045, fw = W * 0.82, fh = H * 0.7;
+  x.save();
+  x.shadowColor = 'rgba(0,0,0,.18)'; x.shadowBlur = 10; x.shadowOffsetY = 3;
+  x.fillStyle = '#fbf8f1'; x.fillRect(fx, fy, fw, fh);
+  x.restore();
+  const izq = fx + 44, der = fx + fw - 44;
+  x.textBaseline = 'alphabetic';
+
+  // Cabecera.
+  let yy = fy + 62;
+  x.fillStyle = gris; x.font = `400 28px ${serif}`; x.textAlign = 'left';
+  x.fillText('B I B L I O T E C A   F P 0 6 5', izq, yy);
+  x.textAlign = 'right'; x.fillText('Nº ' + String(l.id).padStart(5, '0'), der - 56, yy);
+  // favorito: estrella fina (rellena si es favorito)
+  x.save(); x.lineWidth = 2.5; x.strokeStyle = tinta; x.fillStyle = l.favorito ? rojo : 'transparent';
+  estrella(x, der - 16, yy - 9, 20, 9); x.fill(); x.stroke(); x.restore();
+  yy += 22; x.fillStyle = tinta; x.fillRect(izq, yy, der - izq, 2);
+
+  // Datos del libro, en renglones.
   const apellido = (l.autores[0] || '').split(' ').slice(-1)[0] || '';
   const campos = [
-    ['SIGNATURA', `${CODIGO[l.genero] || 'NOV'} · ${quitarTildes(apellido).slice(0, 3).toUpperCase()} · ${l.anio || 's/f'}`],
-    ['AUTOR', l.autores.join(' / ')],
-    ['TÍTULO', l.titulo],
-    ['SECCIÓN', l.genero || '—'],
+    ['Autor', l.autores.join(', ')],
+    ['Título', l.titulo],
+    ['Signatura', `${CODIGO[l.genero] || 'NOV'} ${quitarTildes(apellido).slice(0, 3).toUpperCase()} ${l.anio || 's/f'}`],
   ];
+  x.textAlign = 'left';
+  yy += 62;
   campos.forEach(([k, v]) => {
-    x.fillStyle = '#5a4a36'; x.font = `700 26px Arial, sans-serif`; x.fillText(k, izq, yy);
-    x.fillStyle = '#14110d'; x.font = `700 42px ${mono}`;
-    yy = textoEnLineas(x, v, izq + 200, yy, der - izq - 200, 48);
-    yy += 58;
+    x.fillStyle = gris; x.font = `italic 28px ${serif}`; x.fillText(k, izq, yy);
+    x.fillStyle = tinta; x.font = `700 38px ${mono}`;
+    const fin = textoEnLineas(x, v, izq + 170, yy, der - izq - 170, 44);
+    for (let r = yy; r <= fin; r += 44) { x.fillStyle = linea; x.fillRect(izq + 160, r + 10, der - izq - 160, 1.5); }
+    yy = fin + 60;
   });
-  // Renglones: prestado el / devolver antes del / socio
-  const cols = [izq, izq + (der - izq) * 0.34, izq + (der - izq) * 0.7];
-  x.fillStyle = '#5a4a36'; x.font = `700 24px Arial, sans-serif`;
-  x.fillText('PRESTADO EL', cols[0], yy); x.fillText('DEVOLVER ANTES DEL', cols[1], yy); x.fillText('SOCIO', cols[2], yy);
-  x.fillStyle = '#1d1a16'; x.fillRect(izq, yy + 10, der - izq, 3);
-  const alto0 = yy + 14, paso = 58;
-  for (let i = 1; i <= 3; i++) { x.fillStyle = 'rgba(70,110,160,.35)'; x.fillRect(izq, alto0 + i * paso, der - izq, 2); }
-  [cols[1] - 12, cols[2] - 12].forEach((cx) => { x.fillStyle = 'rgba(29,26,22,.25)'; x.fillRect(cx, alto0, 2, paso * 3); });
-  if (l.prestamo && (!l.prestamo.propio || sello >= 1)) {
-    const yl = alto0 + paso - 14;
-    x.font = `700 32px ${mono}`;
-    x.fillStyle = '#4b2a8a'; x.fillText(fechaLarga(l.prestamo.fechaPrestamo), cols[0], yl);
-    x.fillStyle = l.prestamo.vencido ? '#a3262c' : '#4b2a8a'; x.fillText(fechaLarga(l.prestamo.fechaDevolucion), cols[1], yl);
-    x.fillStyle = '#1f3f7a'; x.font = `italic 36px ${serif}`;
-    x.fillText(l.prestamo.propio ? 'vos' : '— reservado —', cols[2], yl);
-  }
-  // Sello de estado.
-  const disp = l.disponible;
-  x.save(); x.translate(der - 170, H * 0.595); x.rotate(-0.1);
-  x.strokeStyle = x.fillStyle = disp ? '#1d6b45' : '#a3262c'; x.lineWidth = 5; x.globalAlpha = 0.85;
-  x.font = `700 40px ${mono}`; x.textAlign = 'center';
-  const txt = disp ? 'DISPONIBLE' : (l.prestamo && l.prestamo.vencido ? 'VENCIDO' : 'PRESTADO');
-  const ancho = x.measureText(txt).width + 30;
-  x.strokeRect(-ancho / 2, -34, ancho, 62); x.fillText(txt, 0, 13);
-  x.restore();
-  // Favorito: estrella dorada en la esquina (también es un botón).
-  const fav = l.favorito;
-  const sx = der - 30, sy = fy + 54;
-  x.save(); x.fillStyle = fav ? '#c8952f' : 'rgba(0,0,0,0)'; x.strokeStyle = '#8a6414'; x.lineWidth = 4;
-  estrella(x, sx, sy, 30, 13); x.fill(); x.stroke(); x.restore();
-  x.restore();
 
-  // Sello de goma con la fecha de devolución (animado al sellar).
-  if (l.prestamo && l.prestamo.propio && sello > 0) {
-    const k = Math.min(1, sello), esc = 1 + (1 - k) * 1.2;
-    x.save(); x.globalAlpha = Math.min(1, k * 1.6) * 0.88; x.globalCompositeOperation = 'multiply';
-    x.translate(W * 0.52, fy + fh * 0.6); x.rotate(-0.16); x.scale(esc, esc);
-    x.strokeStyle = x.fillStyle = '#5a2ea0'; x.lineWidth = 7;
-    x.strokeRect(-330, -70, 660, 140); x.lineWidth = 3; x.strokeRect(-318, -58, 636, 116);
-    x.textAlign = 'center'; x.font = `700 34px ${mono}`;
-    x.fillText('DEVOLVER ANTES DEL', 0, -10);
-    x.font = `700 46px ${mono}`; x.fillText(fechaLarga(l.prestamo.fechaDevolucion).toUpperCase(), 0, 42);
+  // Tabla de préstamos.
+  yy += 4;
+  const cols = [izq, izq + (der - izq) * 0.36, izq + (der - izq) * 0.72];
+  x.fillStyle = gris; x.font = `400 26px ${serif}`;
+  x.fillText('Prestado', cols[0], yy); x.fillText('Devolver antes del', cols[1], yy); x.fillText('Socio', cols[2], yy);
+  yy += 12; x.fillStyle = tinta; x.fillRect(izq, yy, der - izq, 2);
+  const paso = 56, filas = 5, y0 = yy;
+  for (let i = 1; i <= filas; i++) { x.fillStyle = linea; x.fillRect(izq, y0 + i * paso, der - izq, 1.5); }
+  [cols[1] - 14, cols[2] - 14].forEach((cx) => { x.fillStyle = linea; x.fillRect(cx, y0, 1.5, paso * filas); });
+  if (l.prestamo && (!l.prestamo.propio || sello > 0)) {
+    const yl = y0 + paso - 16;
+    const k = l.prestamo.propio ? Math.min(1, sello) : 1;
+    // fechas estampadas: tinta roja, algo torcidas, aparecen con el golpe del sello
+    x.save(); x.globalAlpha = 0.85 * Math.min(1, k * 1.4);
+    x.fillStyle = rojo; x.font = `700 30px ${mono}`;
+    x.save(); x.translate(cols[0], yl); x.rotate(-0.025); x.fillText(fechaLarga(l.prestamo.fechaPrestamo).toUpperCase(), 0, 0); x.restore();
+    const escala = 1 + (1 - k) * 0.6;
+    x.save(); x.translate(cols[1], yl); x.rotate(-0.035); x.scale(escala, escala);
+    x.fillStyle = l.prestamo.vencido ? rojo : '#7d1d22'; x.fillText(fechaLarga(l.prestamo.fechaDevolucion).toUpperCase(), 0, 0); x.restore();
     x.restore();
+    x.fillStyle = tinta; x.font = `italic 30px ${serif}`;
+    if (k >= 1) x.fillText(l.prestamo.propio ? 'vos' : '—', cols[2], yl);
   }
 
-  // Bolsillo de cartulina kraft pegado abajo.
-  const by = H * 0.66;
-  x.save();
-  x.shadowColor = 'rgba(0,0,0,.35)'; x.shadowBlur = 16; x.shadowOffsetY = -4;
-  x.fillStyle = '#b98b56';
-  x.beginPath(); x.moveTo(W * 0.04, by + 40); x.quadraticCurveTo(W * 0.5, by - 30, W * 0.96, by + 40); x.lineTo(W * 0.96, H * 0.97); x.lineTo(W * 0.04, H * 0.97); x.closePath(); x.fill();
-  x.restore();
-  for (let i = 0; i < 160; i++) { x.fillStyle = `rgba(60,35,10,${Math.random() * 0.06})`; x.fillRect(W * 0.04 + Math.random() * W * 0.92, by + 30 + Math.random() * (H * 0.3), 2, 30); }
-  x.fillStyle = '#2e1d0b'; x.textAlign = 'center';
-  x.font = `700 40px ${serif}`; x.fillText('B I B L I O T E C A   F P 0 6 5', W / 2, by + 96);
-  x.font = `400 28px ${serif}`; x.fillText('Plazo de préstamo: 14 días · no retire la ficha del libro', W / 2, by + 130);
+  // Estado, en una línea discreta al pie de la ficha.
+  x.fillStyle = gris; x.font = `italic 26px ${serif}`;
+  const pie = l.disponible ? 'Disponible para préstamo · 14 días'
+    : l.prestamo && l.prestamo.propio ? `Lo tenés vos · devolvelo antes del ${fechaLarga(l.prestamo.fechaDevolucion)}`
+    : l.prestamo ? `En préstamo · vuelve el ${fechaLarga(l.prestamo.fechaDevolucion)}` : 'En préstamo';
+  x.fillText(pie, izq, H * 0.655);
 
-  // Botón de sellar (impreso en el bolsillo, como un recuadro de "uso interno").
+  // Bolsillo de cartulina manila, sencillo.
+  const by = H * 0.68;
+  x.save(); x.shadowColor = 'rgba(0,0,0,.2)'; x.shadowBlur = 8; x.shadowOffsetY = -2;
+  x.fillStyle = '#dcc79d'; x.fillRect(W * 0.06, by, W * 0.88, H * 0.29);
+  x.restore();
+  x.strokeStyle = 'rgba(60,45,20,.35)'; x.lineWidth = 2; x.strokeRect(W * 0.085, by + 18, W * 0.83, H * 0.29 - 36);
+  x.fillStyle = '#3a2d17'; x.textAlign = 'center';
+  x.font = `400 30px ${serif}`; x.fillText('B I B L I O T E C A   F P 0 6 5', W / 2, by + 74);
+  x.font = `italic 24px ${serif}`; x.fillText('No retire la ficha de este bolsillo', W / 2, by + 112);
+
   const zonas = {};
   if (l.disponible) {
-    const bx = W * 0.12, bw = W * 0.76, bh = 110, byy = by + 168;
-    x.fillStyle = '#5a2ea0'; redondo(x, bx, byy, bw, bh, 14); x.fill();
-    x.fillStyle = '#fff'; x.font = `700 46px ${mono}`; x.fillText('SELLAR PRÉSTAMO · 14 DÍAS', W / 2, byy + 70);
+    const bw = W * 0.56, bh = 88, bx = (W - bw) / 2, byy = by + 160;
+    x.strokeStyle = '#3a2d17'; x.lineWidth = 3; x.strokeRect(bx, byy, bw, bh);
+    x.fillStyle = '#3a2d17'; x.font = `700 36px ${mono}`; x.fillText('SELLAR PRÉSTAMO', W / 2, byy + 57);
     zonas.sellar = [bx, byy, bw, bh];
-  } else {
-    x.fillStyle = '#2e1d0b'; x.font = `700 34px ${mono}`;
-    const t = l.prestamo && l.prestamo.propio ? `Lo tenés vos · devolvelo antes del ${fechaLarga(l.prestamo.fechaDevolucion)}`
-      : (l.prestamo ? `Prestado · vuelve el ${fechaLarga(l.prestamo.fechaDevolucion)}` : 'Prestado');
-    x.fillText(t, W / 2, by + 214);
   }
-  zonas.favorito = [der - 80, fy + 4, 100, 100];
+  zonas.favorito = [der - 50, fy + 20, 70, 70];
   g.userData.zonas = { ...zonas, W, H };
 
   const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 16;
   const m = g.userData.mats.guarda;
   if (m.map) m.map.dispose();
-  m.map = tex; m.color.set(0xffffff); m.needsUpdate = true;
+  m.map = tex; m.color.set(0xd6cfbf); m.needsUpdate = true; // un poco más oscuro: con la luz de lectura queda como papel real
 }
 
 // Qué botón de la ficha hay bajo el ratón (a partir de la coordenada de textura).

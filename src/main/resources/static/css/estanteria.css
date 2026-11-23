@@ -240,3 +240,26 @@
                 background: transparent; color: #fff; cursor: pointer; }
 .tip .vencido { color: #ff8a8a; } .tip .pronto { color: #ffc95c; } .tip .ok { color: #5ff0bc; }
 @media (max-width: 760px) { .kpis-cine { right: 16px; top: 60px; } .kpi-cine { min-width: 70px; } }
+
+/* --- Escritorio del admin ----------------------------------------------------- */
+.capa-etiquetas .etiqueta-pila { display: flex; align-items: center; gap: 8px; padding: 5px 12px; border-radius: 2px;
+       background: #f6f0e1; color: #1d1a16; border-top: 4px solid var(--c); box-shadow: 0 3px 8px rgba(0,0,0,.45);
+       font: 700 14px Georgia, 'Times New Roman', serif; letter-spacing: 1px; text-transform: uppercase; transform: rotate(-1.5deg); }
+.etiqueta-pila b { font: 700 13px Arial, sans-serif; color: #fff; background: var(--c); border-radius: 10px; padding: 1px 8px; letter-spacing: 0; }
+.capa-etiquetas .pila-vacia { font: italic 14px Georgia, serif; color: #e9dfcb; background: rgba(0,0,0,.45); padding: 2px 8px; border-radius: 4px; }
+.capa-etiquetas .etiqueta-libro { pointer-events: auto; position: relative; width: 280px; padding: 14px 16px 12px; border-radius: 3px;
+       background: #fbf8f1; color: #1b1a18; box-shadow: 0 14px 34px rgba(0,0,0,.55); border-top: 5px solid #1f7a55;
+       font: 14px/1.45 Georgia, 'Times New Roman', serif; transform: translate(50%, -50%) rotate(-1deg); animation: etiquetaEntra .35s ease-out; }
+.etiqueta-libro[hidden] { display: none; }
+@keyframes etiquetaEntra { from { opacity: 0; transform: translate(40%, -45%) rotate(-4deg); } to { opacity: 1; transform: translate(50%, -50%) rotate(-1deg); } }
+.etiqueta-libro::before { content: ''; position: absolute; left: -9px; top: 50%; width: 14px; height: 14px; margin-top: -7px;
+       border-radius: 50%; background: #fbf8f1; box-shadow: inset 0 0 0 3px #b9ac92; }
+.etiqueta-libro.vencido { border-top-color: #a1252b; } .etiqueta-libro.pronto { border-top-color: #b87a0a; }
+.etiqueta-libro h3 { margin: 6px 0 0; font-size: 18px; }
+.etiqueta-libro .autor { margin: 0 0 8px; color: #5a5247; font-style: italic; }
+.etiqueta-libro dl { display: grid; grid-template-columns: auto 1fr; gap: 3px 10px; margin: 0; font-family: 'Courier New', monospace; font-size: 14px; }
+.etiqueta-libro dt { color: #5a5247; font-family: Georgia, serif; font-style: italic; }
+.etiqueta-libro dd { margin: 0; word-break: break-word; font-weight: 700; }
+.etiqueta-libro a { color: #1f3f7a; }
+.estado-etiqueta { display: inline-block; font: 700 12px Arial, sans-serif; letter-spacing: 1px; text-transform: uppercase; color: #1f7a55; }
+.etiqueta-libro.vencido .estado-etiqueta { color: #a1252b; } .etiqueta-libro.pronto .estado-etiqueta { color: #b87a0a; }
