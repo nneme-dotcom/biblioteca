@@ -34,12 +34,25 @@ Se pueden cambiar con las variables `APP_ADMIN_EMAIL`, `APP_ADMIN_PASSWORD` y `A
 - `static/css/estilos.css`: estilos comunes (antes repetidos en cada vista)
 - Docker: volumen para no perder datos, variables de las cuentas iniciales, `restart: unless-stopped`
 
-## Vistas 3D (three.js)
-- **Socio · `/libros`**: el catálogo es una estantería de nogal en 3D con los libros reales (portadas de Open Library). Al pasar el ratón el libro asoma; al hacer clic viene a la mano y se abre la ficha (pedir prestado, favorito). Los favoritos llevan una cinta roja y los prestados una etiqueta con la fecha de vuelta. `/libros?vista=tabla` muestra la lista de siempre.
-- **Admin · `/admin/panel`**: los libros prestados salen de su hueco y flotan delante con un anillo que marca lo que queda de préstamo (verde en plazo, ámbar ≤ 3 días, rojo vencido) y un hilo de luz hasta su hueco. A la derecha, resumen y lista de préstamos enlazada con la escena.
-- Datos en JSON: `/libros/datos` (socio, sin datos de otros socios) y `/admin/panel/datos` (solo ADMIN).
-- Necesita internet: three.js se carga desde jsDelivr y las portadas desde Open Library. Si el navegador no tiene WebGL se ofrece la lista.
-- Código: `static/js/biblioteca3d.js` (sala, madera, libros, portadas), `estanteria.js`, `panel.js`, `static/css/estanteria.css`, `controller/VistaLibros.java`, `PanelController.java`, `dto/`.
+## Dos vistas sobre el mismo back-end
+El back-end (controladores, seguridad y rutas JSON) es uno solo. Encima hay dos front-ends y se pasa de uno a otro con un botón; la elección se guarda en la cookie `vista` (`/vista/cine` o `/vista/tradicional`).
+
+- **Vista cinematográfica** (por defecto al iniciar sesión): pantalla completa, sin menú, en three.js.
+  - **Socio · `/libros`**: solo la estantería, con 55 libros reales (portadas de Open Library) y un estante por género con su placa de latón grabada (clic para acercarte). La insignia dorada del lomo añade o quita favoritos. Los prestados están algo hundidos y apagados; los tuyos llevan un hilo verde. Al hacer clic en un libro sale del estante, la cámara se centra en él y se abre hasta la contratapa, donde está el bolsillo con la ficha de préstamo: «Sellar préstamo» estampa el sello con la fecha de devolución y registra el préstamo; la estrella de la ficha marca favorito. Clic fuera del libro (o Esc) lo devuelve al estante.
+  - **Admin · `/admin/panel`**: panel de control 3D. Línea de tiempo con HOY en el centro: vencidos a la izquierda (rojo, laten), vencen en ≤ 3 días (ámbar) y en plazo (verde). Cada préstamo es una tarjeta con la portada; al hacer clic se despliegan los datos del socio (nombre, teléfono, email y fechas).
+- **Vista tradicional**: las pantallas de siempre con el menú de pestañas (catálogo en tabla, mis préstamos, favoritos; gestión de libros, usuarios y préstamos para el admin). Enlace «✦ Vista cinematográfica» para volver.
+
+Rutas JSON que usa el front-end 3D:
+| Ruta | Rol | Qué hace |
+|---|---|---|
+| `GET /libros/datos` | USER | Libros con género, favorito y préstamo (solo si es tuyo se indica `propio`; nunca datos de otros socios) |
+| `POST /user/api/prestamos/{id}` | USER | Pide el libro (14 días) y devuelve la fecha de devolución |
+| `POST /user/api/favoritos/{id}` | USER | Marca o desmarca favorito |
+| `GET /admin/panel/datos` | ADMIN | Libros con su préstamo activo, socio, email y teléfono |
+
+Notas: necesita internet (three.js desde jsDelivr y portadas de Open Library). Abrí la estantería una vez antes de grabar para que el navegador guarde las portadas. Si el navegador no tiene WebGL se ofrece la vista tradicional.
+
+Código 3D: `static/js/biblioteca3d.js` (sala, madera, libros que se abren, placas, portadas), `estanteria.js`, `panel.js`, `static/css/estanteria.css`; back-end: `VistaController`, `VistaLibros`, `PanelController`, `CatalogoController`, `UserController` (rutas `/api`), `dto/`.
 
 ## Guion sugerido para el vídeo
 1. Sin sesión: portada → intentar `/admin/libros` → redirige a login.

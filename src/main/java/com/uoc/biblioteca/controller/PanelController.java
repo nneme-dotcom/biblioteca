@@ -26,10 +26,10 @@ public class PanelController {
         return "admin/panel";
     }
 
-    // Todos los libros con su préstamo activo, incluido quién lo tiene.
+    // Todos los libros con su préstamo activo, incluido quién lo tiene y su teléfono.
     @GetMapping("/datos")
     @ResponseBody
     public List<LibroVista> datos() {
-        return vistaLibros.armar(Set.of(), true);
+        return vistaLibros.armar(Set.of(), true, null);
     }
 }

@@ -13,10 +13,12 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import java.security.Principal;
 import java.time.LocalDate;
+import java.util.Map;
 
 // La zona del socio (/user/...). Solo entra ROLE_USER y siempre trabaja con SUS datos.
 @Controller
@@ -55,7 +57,7 @@ public class UserController {
         Libro libro = libroRepository.findById(libroId).orElseThrow();
         if (!libro.isDisponible()) {
             redirect.addFlashAttribute("error", "\"" + libro.getTitulo() + "\" no está disponible ahora.");
-            return "redirect:/libros";
+            return "redirect:/libros?vista=tabla";
         }
         Prestamo p = new Prestamo();
         p.setLibro(libro);
@@ -85,6 +87,45 @@ public class UserController {
         if (!u.getFavoritos().remove(libro)) {
             u.getFavoritos().add(libro);
         }
-        return "redirect:/libros";
+        return "redirect:/libros?vista=tabla";
+    }
+
+    // --- Rutas JSON para la vista cinematográfica (se usan sin recargar la página) ---
+
+    // Pide un libro prestado y contesta con la fecha de devolución.
+    @PostMapping("/api/prestamos/{libroId}")
+    @ResponseBody
+    @Transactional
+    public Map<String, Object> solicitarApi(@PathVariable Long libroId, Principal principal) {
+        Libro libro = libroRepository.findById(libroId).orElseThrow();
+        if (!libro.isDisponible()) {
+            return Map.of("ok", false, "mensaje", "Ese libro ya no está disponible.");
+        }
+        Prestamo p = new Prestamo();
+        p.setLibro(libro);
+        p.setUsuario(actual(principal));
+        p.setFechaPrestamo(LocalDate.now());
+        p.setFechaDevolucionPrevista(LocalDate.now().plusDays(DIAS_PRESTAMO));
+        p.setDevuelto(false);
+        prestamoRepository.save(p);
+        libro.setDisponible(false);
+        return Map.of("ok", true,
+                "fechaPrestamo", String.valueOf(p.getFechaPrestamo()),
+                "fechaDevolucion", String.valueOf(p.getFechaDevolucionPrevista()),
+                "diasRestantes", DIAS_PRESTAMO);
+    }
+
+    // Marca o desmarca un favorito y contesta cómo quedó.
+    @PostMapping("/api/favoritos/{libroId}")
+    @ResponseBody
+    @Transactional
+    public Map<String, Object> alternarFavoritoApi(@PathVariable Long libroId, Principal principal) {
+        Usuario u = actual(principal);
+        Libro libro = libroRepository.findById(libroId).orElseThrow();
+        boolean ahora = !u.getFavoritos().remove(libro);
+        if (ahora) {
+            u.getFavoritos().add(libro);
+        }
+        return Map.of("favorito", ahora);
     }
 }

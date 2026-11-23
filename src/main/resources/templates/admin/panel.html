@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <link rel="icon" href="data:,">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Panel de préstamos</title>
+  <title>Biblioteca FP065 · Panel de préstamos</title>
   <link rel="stylesheet" th:href="@{/css/estilos.css}">
   <link rel="stylesheet" th:href="@{/css/estanteria.css}">
   <script type="importmap">
@@ -13,38 +13,28 @@
         "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/" } }
   </script>
 </head>
-<body class="pagina3d">
-<!-- Solo administración. Dónde está cada libro y cuánto le queda a cada préstamo. -->
-<nav th:replace="~{fragments/menu :: menu}"></nav>
-<div class="panel3d">
-  <main class="sala3d">
-    <div id="escena" class="escena3d" role="img" aria-label="Estantería 3D: los libros prestados flotan delante con un anillo de tiempo"></div>
-    <div class="hud abajo">
-      <h1>¿Dónde está cada libro?</h1>
-      <p>Los libros prestados salen de su hueco y flotan delante. El anillo marca lo que queda de préstamo.</p>
-      <div class="leyenda">
-        <span><i style="background:#2bd99a"></i>En plazo</span>
-        <span><i style="background:#ffb020"></i>Vence en ≤ 3 días</span>
-        <span><i style="background:#ff3b3b"></i>Vencido</span>
-      </div>
+<!-- Vista cinematográfica del admin: panel de control 3D de préstamos, sin menú. -->
+<body class="pagina3d cine panel-control">
+<main class="sala3d">
+  <div id="escena" class="escena3d" role="img" aria-label="Panel 3D: línea de tiempo de los préstamos activos"></div>
+
+  <div class="kpis-cine">
+    <h1>Préstamos activos</h1>
+    <div class="fila-kpis">
+      <span class="kpi-cine vencido"><b id="k-vencidos">–</b>vencidos</span>
+      <span class="kpi-cine pronto"><b id="k-pronto">–</b>vencen en ≤ 3 días</span>
+      <span class="kpi-cine ok"><b id="k-ok">–</b>en plazo</span>
+      <span class="kpi-cine"><b id="k-estante">–</b>en la estantería</span>
     </div>
-    <div id="cargando" class="cargando">Cargando el panel…</div>
-  </main>
-  <aside class="panel-lado">
-    <h1>Resumen</h1>
-    <div class="kpis">
-      <div class="kpi"><b id="k-total">–</b><span>libros en total</span></div>
-      <div class="kpi ok"><b id="k-estante">–</b><span>en la estantería</span></div>
-      <div class="kpi"><b id="k-prestados">–</b><span>prestados</span></div>
-      <div class="kpi vencido"><b id="k-vencidos">–</b><span>vencidos</span></div>
-      <div class="kpi pronto"><b id="k-pronto">–</b><span>vencen en ≤ 3 días</span></div>
-    </div>
-    <h2>Préstamos activos</h2>
-    <p>Pasá el ratón por un préstamo para encontrarlo en la escena. <a th:href="@{/admin/prestamos}">Gestionar devoluciones</a></p>
-    <ul id="lista-prestamos"></ul>
-  </aside>
-</div>
-<div id="tooltip" class="tip" hidden></div>
+  </div>
+  <div class="esquina">
+    <a class="boton-cine" th:href="@{/vista/tradicional}">Vista tradicional</a>
+    <form th:action="@{/logout}" method="post"><button class="boton-cine" type="submit">Salir</button></form>
+  </div>
+  <p id="ayuda" class="ayuda">Clic en un préstamo para ver los datos del socio · arrastrá para girar · rueda para acercar</p>
+  <div id="cargando" class="cargando">Cargando el panel…</div>
+  <div id="tooltip" class="tip" hidden></div>
+</main>
 <script type="module" th:src="@{/js/panel.js}"></script>
 </body>
 </html>

@@ -31,8 +31,9 @@ public class VistaLibros {
         this.prestamoRepository = prestamoRepository;
     }
 
-    // conDatosDelSocio = true solo para administración: incluye quién tiene cada libro.
-    public List<LibroVista> armar(Set<Long> favoritosIds, boolean conDatosDelSocio) {
+    // conDatosDelSocio = true solo para administración: incluye quién tiene cada libro y su teléfono.
+    // emailActual sirve para marcar los préstamos que son del propio socio.
+    public List<LibroVista> armar(Set<Long> favoritosIds, boolean conDatosDelSocio, String emailActual) {
         LocalDate hoy = LocalDate.now();
         // Préstamo activo de cada libro (si hubiera más de uno, el más reciente).
         Map<Long, Prestamo> activos = prestamoRepository.findByDevueltoFalse().stream()
@@ -50,10 +51,12 @@ public class VistaLibros {
                                 p.getId(),
                                 conDatosDelSocio ? p.getUsuario().getNombre() : null,
                                 conDatosDelSocio ? p.getUsuario().getEmail() : null,
+                                conDatosDelSocio ? p.getUsuario().getTelefono() : null,
                                 String.valueOf(p.getFechaPrestamo()),
                                 String.valueOf(p.getFechaDevolucionPrevista()),
                                 dias,
-                                dias < 0);
+                                dias < 0,
+                                p.getUsuario().getEmail() != null && p.getUsuario().getEmail().equals(emailActual));
                     }
                     List<String> autores = l.getAutores().stream()
                             .map(Autor::getNombre).sorted().toList();

@@ -4,6 +4,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { CSS2DRenderer } from 'three/addons/renderers/CSS2DRenderer.js';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 
 // ---------------------------------------------------------------------------
 // Portadas reales (Open Library). Los ISBN de los datos de ejemplo no coinciden con los de
@@ -278,6 +279,23 @@ export function medidasLibro(id) {
   return { grosor: 0.022 + r() * 0.03, alto: 0.19 + r() * 0.055, fondo: 0.125 + r() * 0.03 };
 }
 
+// Para poder abrirlo, la tapa delantera y el bloque de hojas cuelgan de "bisagras" en el lomo.
+// La última página: renglones de texto tenue y número de página, como un libro de verdad.
+function texturaPagina() {
+  const [c, g] = lienzo(512, 800);
+  g.fillStyle = '#f4ecd8'; g.fillRect(0, 0, 512, 800);
+  g.fillStyle = 'rgba(40,30,20,0.28)';
+  for (let y = 70; y < 560; y += 18) {
+    const ancho = y > 540 ? 180 : 400 - (Math.random() < 0.12 ? 120 : 0);
+    g.fillRect(56, y, ancho, 7);
+  }
+  g.font = '400 22px Georgia, serif'; g.textAlign = 'center'; g.fillStyle = 'rgba(40,30,20,0.6)';
+  g.fillText('FIN', 256, 640);
+  g.font = '400 18px Georgia, serif'; g.fillText('— 237 —', 256, 750);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+const matPagina = new THREE.MeshStandardMaterial({ map: texturaPagina(), roughness: 0.95 });
 export function crearLibro(libro) {
   const { grosor, alto, fondo } = medidasLibro(libro.id);
   const grupo = new THREE.Group();
@@ -285,30 +303,78 @@ export function crearLibro(libro) {
 
   const tela = new THREE.MeshPhysicalMaterial({ color: 0x6b5a48, roughness: 0.72, bumpMap: bumpTela(), bumpScale: 0.6, sheen: 0.4, sheenRoughness: 0.8 });
   const tapaFrente = new THREE.MeshPhysicalMaterial({ color: 0x6b5a48, roughness: 0.48, clearcoat: 0.25, clearcoatRoughness: 0.5 });
-  tapaFrente.visible = true;
+  const guarda = new THREE.MeshStandardMaterial({ color: 0xe9dcc0, roughness: 0.9 }); // cara interior de la contratapa
+  const guardaTapa = new THREE.MeshStandardMaterial({ color: 0xe9dcc0, roughness: 0.9 });
 
-  // Hojas
+  // Bloque de hojas: cuelga de una bisagra en el lomo, del lado de la tapa delantera.
   const hojas = new THREE.Mesh(
     new THREE.BoxGeometry(grosor - TAPA * 2, alto - VUELO * 2, fondo - VUELO),
-    [tela, tela, matPapelH, matPapelH, tela, matPapelV]);
-  hojas.position.z = -VUELO / 2;
-  // Tapas (la delantera lleva la portada en su cara +x)
+    [matPagina, matPagina, matPapelH, matPapelH, tela, matPapelV]);
+  const bisagraHojas = new THREE.Group();
+  bisagraHojas.position.set(grosor / 2 + TAPA, 0, fondo / 2);
+  hojas.position.set(-(grosor / 2 + TAPA), 0, -VUELO / 2 - fondo / 2);
+  bisagraHojas.add(hojas);
+
+  // Tapa delantera (portada en su cara +x, guarda en la -x) con su propia bisagra.
   const geoTapa = new THREE.BoxGeometry(TAPA, alto, fondo);
-  const delantera = new THREE.Mesh(geoTapa, [tapaFrente, tela, tela, tela, tela, tela]);
-  delantera.position.x = grosor / 2 - TAPA / 2;
-  const trasera = new THREE.Mesh(geoTapa, tela);
+  const delantera = new THREE.Mesh(geoTapa, [tapaFrente, guardaTapa, tela, tela, tela, tela]);
+  const bisagraTapa = new THREE.Group();
+  bisagraTapa.position.set(grosor / 2, 0, fondo / 2);
+  delantera.position.set(-TAPA / 2, 0, -fondo / 2);
+  bisagraTapa.add(delantera);
+
+  // Contratapa: su cara interior (+x) es donde va pegado el bolsillo con la ficha de préstamo.
+  const trasera = new THREE.Mesh(geoTapa, [guarda, tela, tela, tela, tela, tela]);
   trasera.position.x = -grosor / 2 + TAPA / 2;
-  // Lomo: un poco redondeado (media caña) con la etiqueta del título
+
+  // Últimas hojas sueltas: se ven pasar una a una al abrir el libro hasta el final.
+  const sueltas = [];
+  for (let i = 0; i < 4; i++) {
+    const hoja = new THREE.Mesh(new THREE.BoxGeometry(0.0004, alto - VUELO * 2.4, fondo - VUELO * 1.5), matPagina);
+    const b = new THREE.Group();
+    b.position.set(-grosor / 2 + TAPA + 0.0006 * (i + 1), 0, fondo / 2);
+    hoja.position.set(0, 0, -(fondo - VUELO * 1.5) / 2 - VUELO / 2);
+    b.add(hoja); b.visible = false;
+    sueltas.push(b);
+  }
+
+  // Lomo con la etiqueta del título.
   const lomoMat = new THREE.MeshPhysicalMaterial({ color: 0xffffff, roughness: 0.6, bumpMap: bumpTela(), bumpScale: 0.4, sheen: 0.3 });
   const lomo = new THREE.Mesh(new THREE.BoxGeometry(grosor, alto, TAPA * 1.2), [tela, tela, tela, tela, lomoMat, tela]);
   lomo.position.z = fondo / 2 - TAPA * 0.6;
 
-  [hojas, delantera, trasera, lomo].forEach((m) => { m.castShadow = true; m.receiveShadow = true; grupo.add(m); });
-  grupo.userData.mats = { tela, tapaFrente, lomoMat };
+  [hojas, delantera, trasera, lomo].forEach((m) => { m.castShadow = true; m.receiveShadow = true; });
+  grupo.add(bisagraHojas, bisagraTapa, trasera, lomo, ...sueltas);
+  grupo.userData.mats = { tela, tapaFrente, lomoMat, guarda };
   grupo.userData.piezas = [hojas, delantera, trasera, lomo];
+  grupo.userData.partes = { bisagraHojas, bisagraTapa, trasera, sueltas, hojas, delantera };
+  grupo.userData.apertura = 0;
 
   pintarLomo(grupo, '#5b4a3a', '#efe6d2');
   return grupo;
+}
+
+// Abre el libro según k (0 = cerrado, 1 = abierto hasta la contratapa).
+// Primero gira la tapa con casi todo el bloque, después pasan las últimas hojas.
+export function abrirLibro(grupo, k) {
+  const { bisagraHojas, bisagraTapa, sueltas } = grupo.userData.partes;
+  const { grosor } = grupo.userData;
+  const tramo = (a, b) => Math.min(1, Math.max(0, (k - a) / (b - a)));
+  const curva = (t) => t * t * (3 - 2 * t);
+  bisagraTapa.rotation.y = -Math.PI * curva(tramo(0, 0.5));
+  bisagraHojas.rotation.y = -Math.PI * curva(tramo(0.08, 0.62));
+  sueltas.forEach((b, i) => {
+    const t = curva(tramo(0.55 + i * 0.09, 0.78 + i * 0.09));
+    b.visible = k > 0.5;
+    b.rotation.y = -Math.PI * t;
+    // al pasar, la hoja se apoya encima del montón de la izquierda
+    const xIni = -grosor / 2 + TAPA + 0.0006 * (i + 1);
+    const xFin = grosor * 1.5 + TAPA + 0.0006 * (i + 1);
+    b.position.x = xIni + (xFin - xIni) * t;
+    // un poco de curvatura en el aire
+    b.children[0].rotation.y = Math.sin(t * Math.PI) * 0.25;
+  });
+  grupo.userData.apertura = k;
 }
 
 // Dibuja el lomo: color de fondo, filetes dorados, título en vertical y autor.
@@ -385,7 +451,7 @@ function tapaGenerica(grupo) {
   lineas.forEach((t, i) => g.fillText(t, 300, 330 + i * 66));
   g.font = '400 32px Georgia, serif'; g.fillText((libro.autores || []).join(', '), 300, 700);
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
-  const m = grupo.userData.mats.tapaFrente; m.map = t; m.needsUpdate = true;
+  const m = grupo.userData.mats.tapaFrente; m.map = t; m.color.set(0xffffff); m.needsUpdate = true;
 }
 
 // Color medio de la franja izquierda de la portada (la que toca el lomo) y una tinta que contraste.
@@ -502,4 +568,51 @@ export const prefiereQuieto = () => window.matchMedia && matchMedia('(prefers-re
 
 export function webglDisponible() {
   try { const c = document.createElement('canvas'); return !!(c.getContext('webgl2') || c.getContext('webgl')); } catch (e) { return false; }
+}
+
+// ---------------------------------------------------------------------------
+// Placa de latón con el nombre grabado (relieve hundido), dos tornillos y biselado.
+// ---------------------------------------------------------------------------
+export function crearPlaca(nombre, ancho = 0.17, alto = 0.03) {
+  const W = 1400, H = Math.round(W * alto / ancho);
+  const [c, g] = lienzo(W, H);      // color
+  const [cb, gb] = lienzo(W, H);    // relieve (blanco = alto, negro = hundido)
+  // Latón cepillado: degradado cálido y rayitas horizontales.
+  const grad = g.createLinearGradient(0, 0, 0, H);
+  grad.addColorStop(0, '#f1d58f'); grad.addColorStop(0.45, '#c9a14e'); grad.addColorStop(1, '#9c7531');
+  g.fillStyle = grad; g.fillRect(0, 0, W, H);
+  for (let y = 0; y < H; y++) { g.fillStyle = `rgba(${Math.random() < 0.5 ? '255,240,200' : '80,55,15'},${Math.random() * 0.08})`; g.fillRect(0, y, W, 1); }
+  gb.fillStyle = '#fff'; gb.fillRect(0, 0, W, H);
+  // Filete grabado alrededor.
+  const m = H * 0.14;
+  const grabar = (dibujar) => {
+    g.save(); g.translate(-2, -2); g.strokeStyle = g.fillStyle = 'rgba(70,45,10,0.95)'; dibujar(g); g.restore();
+    g.save(); g.translate(2, 2); g.strokeStyle = g.fillStyle = 'rgba(255,245,210,0.55)'; dibujar(g); g.restore();
+    g.save(); g.strokeStyle = g.fillStyle = '#5a3d10'; dibujar(g); g.restore();
+    gb.save(); gb.strokeStyle = gb.fillStyle = '#000'; dibujar(gb); gb.restore();
+  };
+  grabar((x) => { x.lineWidth = 5; x.strokeRect(m, m, W - m * 2, H - m * 2); });
+  // Texto en versalitas, con espaciado de imprenta.
+  const texto = nombre.toUpperCase().split('').join(String.fromCharCode(8202));
+  grabar((x) => {
+    x.font = `700 ${Math.round(H * 0.5)}px Georgia, 'Times New Roman', serif`;
+    x.textAlign = 'center'; x.textBaseline = 'middle';
+    x.fillText(texto, W / 2, H / 2 + H * 0.03);
+  });
+  // Tornillos.
+  [m * 2.2, W - m * 2.2].forEach((cx) => {
+    const r = H * 0.13;
+    const rg = g.createRadialGradient(cx - r / 3, H / 2 - r / 3, 1, cx, H / 2, r);
+    rg.addColorStop(0, '#fff3c8'); rg.addColorStop(1, '#7d5a1f');
+    g.fillStyle = rg; g.beginPath(); g.arc(cx, H / 2, r, 0, Math.PI * 2); g.fill();
+    g.strokeStyle = '#4a320c'; g.lineWidth = 4; g.beginPath(); g.moveTo(cx - r * 0.7, H / 2 - r * 0.3); g.lineTo(cx + r * 0.7, H / 2 + r * 0.3); g.stroke();
+    gb.fillStyle = '#000'; gb.beginPath(); gb.arc(cx, H / 2, r * 1.05, 0, Math.PI * 2); gb.stroke();
+  });
+  const mapa = new THREE.CanvasTexture(c); mapa.colorSpace = THREE.SRGBColorSpace; mapa.anisotropy = 16;
+  const relieve = new THREE.CanvasTexture(cb);
+  const mat = new THREE.MeshStandardMaterial({ map: mapa, bumpMap: relieve, bumpScale: 1.2, metalness: 0.75, roughness: 0.32 });
+  const placa = new THREE.Mesh(new RoundedBoxGeometry(ancho, alto, 0.0035, 3, 0.0012), mat);
+  placa.castShadow = true;
+  placa.userData.placa = nombre;
+  return placa;
 }

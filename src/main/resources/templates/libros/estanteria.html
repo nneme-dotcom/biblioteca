@@ -1,11 +1,11 @@
 <!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<html xmlns:th="http://www.thymeleaf.org">
 <head>
   <meta charset="UTF-8">
   <link rel="icon" href="data:,">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Catálogo · Estantería</title>
-  <!-- Token CSRF para las acciones que se hacen sin recargar (favoritos). -->
+  <title>Biblioteca FP065 · Estantería</title>
+  <!-- Token CSRF para las acciones que se hacen sin recargar (préstamo y favoritos). -->
   <meta name="_csrf" th:content="${_csrf.token}">
   <meta name="_csrf_header" th:content="${_csrf.headerName}">
   <link rel="stylesheet" th:href="@{/css/estilos.css}">
@@ -17,85 +17,22 @@
         "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/" } }
   </script>
 </head>
-<body class="pagina3d" th:attr="data-socio=${#authentication.name}">
-<!-- Catálogo del socio: una estantería de nogal con un estante por género y los libros de verdad. -->
-<nav th:replace="~{fragments/menu :: menu}"></nav>
+<!-- Vista cinematográfica del socio: solo la estantería, sin menú. Todo se hace desde los libros. -->
+<body class="pagina3d cine" th:attr="data-socio=${#authentication.name}">
 <main class="sala3d">
-  <div id="escena" class="escena3d" role="img" aria-label="Estantería 3D con los libros del catálogo ordenados por género"></div>
+  <div id="escena" class="escena3d" role="img" aria-label="Estantería 3D con los libros de la biblioteca ordenados por género"></div>
 
-  <div class="hud">
-    <h1>Catálogo</h1>
-    <p id="contador">Cargando libros…</p>
-    <div id="nav-generos" class="nav-generos" aria-label="Ir a un género"></div>
-    <p>Pasá el ratón por los lomos y hacé clic en un libro. Arrastrá para girar, rueda para acercar.</p>
-    <fieldset class="modo-ficha">
-      <legend>Al abrir un libro, mostrar:</legend>
-      <label><input type="radio" name="modo-ficha" value="real"> Ficha de biblioteca</label>
-      <label><input type="radio" name="modo-ficha" value="simple"> Formulario simple</label>
-    </fieldset>
-    <p><a th:href="@{/libros(vista='tabla')}">Ver el catálogo como lista</a></p>
+  <!-- Lo único fijo en pantalla: ir a la vista tradicional y salir. -->
+  <div class="esquina">
+    <a class="boton-cine" th:href="@{/vista/tradicional}">Vista tradicional</a>
+    <form th:action="@{/logout}" method="post"><button class="boton-cine" type="submit">Salir</button></form>
   </div>
 
+  <p id="ayuda" class="ayuda" aria-live="polite"></p>
+  <p id="aviso" class="aviso-cine" role="status" hidden></p>
   <div id="cargando" class="cargando">Montando la estantería…</div>
-
-  <!-- Formulario simple (el de antes). -->
-  <aside id="ficha" class="ficha" hidden aria-live="polite">
-    <button class="cerrar" type="button" data-cerrar-ficha aria-label="Volver a la estantería">✕</button>
-    <img id="ficha-portada" alt="">
-    <h2 id="ficha-titulo"></h2>
-    <p id="ficha-autores" class="autores"></p>
-    <span id="ficha-estado" class="estado"></span>
-    <dl>
-      <dt>Género</dt><dd id="ficha-genero"></dd>
-      <dt>Año</dt><dd id="ficha-anio"></dd>
-      <dt>ISBN</dt><dd id="ficha-isbn"></dd>
-    </dl>
-    <div class="acciones">
-      <form id="form-pedir" method="post" th:action="@{/user/prestamos/solicitar/0}">
-        <button class="btn" type="submit">Pedir prestado (14 días)</button>
-      </form>
-      <button id="btn-favorito" class="btn-sec" type="button"></button>
-      <a th:href="@{/user/prestamos}">Ver mis préstamos</a>
-    </div>
-  </aside>
-
-  <!-- Ficha de préstamo de cartulina, como las de las bibliotecas de antes. -->
-  <aside id="ficha-real" class="ficha-real" hidden aria-live="polite">
-    <div class="tarjeta">
-      <span id="fr-clip" class="clip" aria-hidden="true" hidden></span>
-      <header>
-        <span>BIBLIOTECA FP065</span>
-        <span id="fr-registro"></span>
-      </header>
-      <h2>Ficha de préstamo</h2>
-      <div class="fr-cabecera">
-        <img id="fr-portada" alt="">
-        <dl>
-          <dt>Signatura</dt><dd id="fr-signatura"></dd>
-          <dt>Autor</dt><dd id="fr-autor"></dd>
-          <dt>Título</dt><dd id="fr-titulo"></dd>
-          <dt>Sección</dt><dd id="fr-genero"></dd>
-          <dt>ISBN</dt><dd id="fr-isbn"></dd>
-        </dl>
-      </div>
-      <span id="fr-estado" class="fr-estado"></span>
-      <table class="renglones">
-        <thead><tr><th>Prestado el</th><th>Devolver antes del</th><th>Socio</th></tr></thead>
-        <tbody id="fr-renglones"></tbody>
-      </table>
-      <div id="fr-sello" class="sello" hidden aria-hidden="true"><b></b><span>Biblioteca FP065</span></div>
-      <div class="fr-acciones">
-        <button id="fr-sellar" class="boton-sello" type="button">Sellar préstamo · 14 días</button>
-        <button id="fr-favorito" class="boton-clip" type="button"></button>
-        <button id="fr-cerrar" class="boton-volver" type="button" data-cerrar-ficha>Devolver a la estantería</button>
-      </div>
-      <p class="fr-pie">Plazo de préstamo: 14 días. Esta ficha no debe retirarse del libro.</p>
-    </div>
-    <div class="bolsillo" aria-hidden="true"><span>BIBLIOTECA FP065</span><small>Fichas de préstamo</small></div>
-  </aside>
-
   <div id="tooltip" class="tip" hidden></div>
-  <noscript><div class="cargando">La estantería necesita JavaScript. <a href="/libros?vista=tabla">Ver como lista</a></div></noscript>
+  <noscript><div class="cargando">La vista cinematográfica necesita JavaScript. <a href="/vista/tradicional">Ir a la vista tradicional</a></div></noscript>
 </main>
 <script type="module" th:src="@{/js/estanteria.js}"></script>
 </body>

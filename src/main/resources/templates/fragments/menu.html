@@ -6,19 +6,21 @@
   <a th:href="@{/}"><strong>Biblioteca</strong></a>
 
   <!-- Cualquiera con sesión ve el catálogo. -->
-  <a sec:authorize="isAuthenticated()" th:href="@{/libros}">Catálogo</a>
+  <a sec:authorize="isAuthenticated()" th:href="@{/libros(vista='tabla')}">Catálogo</a>
 
   <!-- Solo el socio. -->
   <a sec:authorize="hasRole('USER')" th:href="@{/user/prestamos}">Mis préstamos</a>
   <a sec:authorize="hasRole('USER')" th:href="@{/user/favoritos}">Favoritos</a>
 
   <!-- Solo administración. -->
-  <a sec:authorize="hasRole('ADMIN')" th:href="@{/admin/panel}">Panel 3D</a>
   <a sec:authorize="hasRole('ADMIN')" th:href="@{/admin/libros}">Gestión de libros</a>
   <a sec:authorize="hasRole('ADMIN')" th:href="@{/admin/usuarios}">Usuarios</a>
   <a sec:authorize="hasRole('ADMIN')" th:href="@{/admin/prestamos}">Préstamos</a>
 
   <span class="espacio"></span>
+
+  <!-- Volver a la vista cinematográfica (3D a pantalla completa). -->
+  <a sec:authorize="isAuthenticated()" class="a-cine" th:href="@{/vista/cine}">✦ Vista cinematográfica</a>
 
   <!-- Sin sesión: entrar o registrarse. -->
   <a sec:authorize="isAnonymous()" th:href="@{/login}">Entrar</a>

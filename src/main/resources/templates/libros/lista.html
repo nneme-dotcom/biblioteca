@@ -14,7 +14,6 @@
   <h1 sec:authorize="hasRole('ADMIN')">Gestión de libros</h1>
   <h1 sec:authorize="!hasRole('ADMIN')">Catálogo</h1>
 
-  <p sec:authorize="hasRole('USER')"><a th:href="@{/libros}">Ver el catálogo como estantería 3D</a></p>
   <p sec:authorize="hasRole('ADMIN')"><a class="btn" th:href="@{/admin/libros/nuevo}">+ Nuevo libro</a></p>
 
   <table>
